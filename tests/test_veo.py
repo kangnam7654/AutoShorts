@@ -74,6 +74,21 @@ class TestGenerateVideo:
         assert result == output
         mock_client.operations.get.assert_called_once()
 
+    def test_timeout_raises(self):
+        import veo
+
+        op_pending = MagicMock()
+        op_pending.done = False
+
+        mock_client = MagicMock()
+        mock_client.operations.get.return_value = op_pending
+
+        with patch.object(veo, "MAX_WAIT_SECONDS", 5):
+            with patch.object(veo, "POLL_INTERVAL", 2):
+                with patch("time.sleep"):
+                    with pytest.raises(TimeoutError, match="5s"):
+                        veo._wait_for_operation(mock_client, op_pending)
+
     def test_default_output_path(self, tmp_path):
         import veo
 

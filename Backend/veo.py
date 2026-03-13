@@ -1,7 +1,7 @@
 """Veo API client: generate and extend videos via Google GenAI SDK."""
 
 import os
-import subprocess
+import shutil
 import time
 from pathlib import Path
 from uuid import uuid4
@@ -183,24 +183,23 @@ def detect_veo_subtitles(video_path: str, num_samples: int = 5) -> bool:
 
     reader = easyocr.Reader(["ko", "en"], gpu=False, verbose=False)
     cap = cv2.VideoCapture(video_path)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    try:
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if total_frames <= 0:
+            return False
 
-    if total_frames <= 0:
+        frames_with_text = 0
+        for i in range(num_samples):
+            frame_idx = int(total_frames * (i + 1) / (num_samples + 1))
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+            if not ret:
+                continue
+            results = reader.readtext(frame, paragraph=False)
+            if any(conf > 0.3 for _, _, conf in results):
+                frames_with_text += 1
+    finally:
         cap.release()
-        return False
-
-    frames_with_text = 0
-    for i in range(num_samples):
-        frame_idx = int(total_frames * (i + 1) / (num_samples + 1))
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-        ret, frame = cap.read()
-        if not ret:
-            continue
-        results = reader.readtext(frame, paragraph=False)
-        if any(conf > 0.3 for _, _, conf in results):
-            frames_with_text += 1
-
-    cap.release()
     return frames_with_text >= 2
 
 
@@ -218,18 +217,15 @@ def clean_veo_subtitles(video_path: str, height: int = 200) -> str:
         for i in range(steps)
     )
 
-    subprocess.run(
-        [
-            "ffmpeg", "-y",
-            "-i", str(input_path),
-            "-vf", bands,
-            "-c:a", "copy",
-            str(clean_path),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    from ffmpeg_utils import _run_ffmpeg
+
+    _run_ffmpeg([
+        "ffmpeg", "-y",
+        "-i", str(input_path),
+        "-vf", bands,
+        "-c:a", "copy",
+        str(clean_path),
+    ])
     return str(clean_path)
 
 
@@ -398,7 +394,6 @@ def generate_multi_part_video(
         raise RuntimeError("Veo did not produce a final video.")
 
     # Copy the last saved part as the final output (avoid re-downloading)
-    import shutil
     last_part_path = str(parts_dir / f"{base_stem}_part{min(index, total_parts)}.mp4")
     if last_part_path != resolved_output_path:
         shutil.copy2(last_part_path, resolved_output_path)

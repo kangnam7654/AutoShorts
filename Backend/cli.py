@@ -305,6 +305,8 @@ def veo(args: argparse.Namespace) -> None:
                 crop=False,
                 script=script,
                 upload=args.upload,
+                upload_title=getattr(args, "upload_title", ""),
+                upload_description=getattr(args, "upload_description", ""),
                 on_log=log_handler,
             )
 
@@ -348,6 +350,8 @@ def finalize(args: argparse.Namespace) -> None:
             script=script,
             output_path=args.output,
             upload=args.upload,
+            upload_title=getattr(args, "upload_title", ""),
+            upload_description=getattr(args, "upload_description", ""),
             on_log=log_handler,
         )
         print(color(f"\nDone! Output: {result}", "1;32"))
@@ -416,6 +420,8 @@ def main() -> None:
     v.add_argument("--clone-ref-text", default="", help="Transcript of the reference audio")
     v.add_argument("-v", "--voice", default="", help="TTS voice (used with --add-narration)")
     v.add_argument("--upload", action="store_true", help="Auto-upload to YouTube")
+    v.add_argument("--upload-title", default="", help="YouTube video title (default: filename)")
+    v.add_argument("--upload-description", default="", help="YouTube video description")
     v.add_argument("-o", "--output", default="", help="Output file path")
 
     # --- finalize ---
@@ -431,6 +437,8 @@ def main() -> None:
     fin.add_argument("--subs-color", default="#FFFF00", help="Subtitle color")
     fin.add_argument("--no-crop", action="store_true", help="Skip 9:16 crop (keep original aspect ratio)")
     fin.add_argument("--upload", action="store_true", help="Auto-upload to YouTube")
+    fin.add_argument("--upload-title", default="", help="YouTube video title (default: filename)")
+    fin.add_argument("--upload-description", default="", help="YouTube video description")
     fin.add_argument("-o", "--output", default="", help="Output file path")
 
     # --- simple commands ---
