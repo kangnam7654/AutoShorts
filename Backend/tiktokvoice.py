@@ -1,69 +1,54 @@
-# author: GiorDior aka Giorgio
-# date: 12.06.2023
-# topic: TikTok-Voice-TTS
-# version: 1.0
-# credits: https://github.com/oscie57/tiktok-voice
-
-# --- MODIFIED VERSION --- #
-
 import base64
-import requests
 import threading
-
 from typing import List
-from logstream import log
+
+import requests
 from playsound import playsound
 
+from logstream import log
 
 VOICES = [
-    # DISNEY VOICES
-    "en_us_ghostface",  # Ghost Face
-    "en_us_chewbacca",  # Chewbacca
-    "en_us_c3po",  # C3PO
-    "en_us_stitch",  # Stitch
-    "en_us_stormtrooper",  # Stormtrooper
-    "en_us_rocket",  # Rocket
-    # ENGLISH VOICES
-    "en_au_001",  # English AU - Female
-    "en_au_002",  # English AU - Male
-    "en_uk_001",  # English UK - Male 1
-    "en_uk_003",  # English UK - Male 2
-    "en_us_001",  # English US - Female (Int. 1)
-    "en_us_002",  # English US - Female (Int. 2)
-    "en_us_006",  # English US - Male 1
-    "en_us_007",  # English US - Male 2
-    "en_us_009",  # English US - Male 3
-    "en_us_010",  # English US - Male 4
-    # EUROPE VOICES
-    "fr_001",  # French - Male 1
-    "fr_002",  # French - Male 2
-    "de_001",  # German - Female
-    "de_002",  # German - Male
-    "es_002",  # Spanish - Male
-    # AMERICA VOICES
-    "es_mx_002",  # Spanish MX - Male
-    "br_001",  # Portuguese BR - Female 1
-    "br_003",  # Portuguese BR - Female 2
-    "br_004",  # Portuguese BR - Female 3
-    "br_005",  # Portuguese BR - Male
-    # ASIA VOICES
-    "id_001",  # Indonesian - Female
-    "jp_001",  # Japanese - Female 1
-    "jp_003",  # Japanese - Female 2
-    "jp_005",  # Japanese - Female 3
-    "jp_006",  # Japanese - Male
-    "kr_002",  # Korean - Male 1
-    "kr_003",  # Korean - Female
-    "kr_004",  # Korean - Male 2
-    # SINGING VOICES
-    "en_female_f08_salut_damour",  # Alto
-    "en_male_m03_lobby",  # Tenor
-    "en_female_f08_warmy_breeze",  # Warmy Breeze
-    "en_male_m03_sunshine_soon",  # Sunshine Soon
-    # OTHER
-    "en_male_narration",  # narrator
-    "en_male_funny",  # wacky
-    "en_female_emotional",  # peaceful
+    "en_us_ghostface",
+    "en_us_chewbacca",
+    "en_us_c3po",
+    "en_us_stitch",
+    "en_us_stormtrooper",
+    "en_us_rocket",
+    "en_au_001",
+    "en_au_002",
+    "en_uk_001",
+    "en_uk_003",
+    "en_us_001",
+    "en_us_002",
+    "en_us_006",
+    "en_us_007",
+    "en_us_009",
+    "en_us_010",
+    "fr_001",
+    "fr_002",
+    "de_001",
+    "de_002",
+    "es_002",
+    "es_mx_002",
+    "br_001",
+    "br_003",
+    "br_004",
+    "br_005",
+    "id_001",
+    "jp_001",
+    "jp_003",
+    "jp_005",
+    "jp_006",
+    "kr_002",
+    "kr_003",
+    "kr_004",
+    "en_female_f08_salut_damour",
+    "en_male_m03_lobby",
+    "en_female_f08_warmy_breeze",
+    "en_male_m03_sunshine_soon",
+    "en_male_narration",
+    "en_male_funny",
+    "en_female_emotional",
 ]
 
 ENDPOINTS = [
@@ -71,137 +56,152 @@ ENDPOINTS = [
     "https://tiktoktts.com/api/tiktok-tts",
 ]
 current_endpoint = 0
-# in one conversion, the text can have a maximum length of 300 characters
 TEXT_BYTE_LIMIT = 300
 
 
-# create a list by splitting a string, every element has n chars
 def split_string(string: str, chunk_size: int) -> List[str]:
     words = string.split()
-    result = []
+    chunks = []
     current_chunk = ""
+
     for word in words:
-        if (
-            len(current_chunk) + len(word) + 1 <= chunk_size
-        ):  # Check if adding the word exceeds the chunk size
-            current_chunk += f" {word}"
-        else:
-            if current_chunk:  # Append the current chunk if not empty
-                result.append(current_chunk.strip())
-            current_chunk = word
-    if current_chunk:  # Append the last chunk if not empty
-        result.append(current_chunk.strip())
-    return result
+        next_chunk = f"{current_chunk} {word}".strip()
+        if len(next_chunk) <= chunk_size:
+            current_chunk = next_chunk
+            continue
+
+        if current_chunk:
+            chunks.append(current_chunk)
+        current_chunk = word
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
 
 
-# checking if the website that provides the service is available
+def _endpoint_healthcheck_url(endpoint_url: str) -> str:
+    return endpoint_url.split("/a")[0]
+
+
 def get_api_response() -> requests.Response:
-    url = f'{ENDPOINTS[current_endpoint].split("/a")[0]}'
-    response = requests.get(url)
-    return response
+    endpoint_url = ENDPOINTS[current_endpoint]
+    return requests.get(_endpoint_healthcheck_url(endpoint_url))
 
 
-# saving the audio file
+def _select_available_endpoint() -> bool:
+    global current_endpoint
+
+    if get_api_response().status_code == 200:
+        log("[+] TikTok TTS Service available!", "success")
+        return True
+
+    current_endpoint = (current_endpoint + 1) % len(ENDPOINTS)
+    if get_api_response().status_code == 200:
+        log("[+] TTS Service available!", "success")
+        return True
+
+    log(
+        "[-] TTS Service not available and probably temporarily rate limited, try again later...",
+        "error",
+    )
+    return False
+
+
 def save_audio_file(base64_data: str, filename: str = "output.mp3") -> None:
     audio_bytes = base64.b64decode(base64_data)
     with open(filename, "wb") as file:
         file.write(audio_bytes)
 
 
-# send POST request to get the audio data
 def generate_audio(text: str, voice: str) -> bytes:
-    url = f"{ENDPOINTS[current_endpoint]}"
-    headers = {"Content-Type": "application/json"}
-    data = {"text": text, "voice": voice}
-    response = requests.post(url, headers=headers, json=data)
+    response = requests.post(
+        ENDPOINTS[current_endpoint],
+        headers={"Content-Type": "application/json"},
+        json={"text": text, "voice": voice},
+    )
     return response.content
 
 
-# creates an text to speech audio file
+def _extract_base64_audio(audio: bytes) -> str:
+    payload = str(audio)
+    if current_endpoint == 0:
+        return payload.split('"')[5]
+    return payload.split('"')[3].split(",")[1]
+
+
+def _validate_request(text: str, voice: str) -> bool:
+    if voice == "none":
+        log("[-] Please specify a voice", "error")
+        return False
+    if voice not in VOICES:
+        log("[-] Voice not available", "error")
+        return False
+    if not text:
+        log("[-] Please specify a text", "error")
+        return False
+    return True
+
+
+def _generate_single_audio(text: str, voice: str) -> str:
+    return _extract_base64_audio(generate_audio(text, voice))
+
+
+def _generate_chunked_audio(text: str, voice: str) -> str:
+    text_parts = split_string(text, TEXT_BYTE_LIMIT - 1)
+    audio_parts = [""] * len(text_parts)
+    errors = []
+
+    def generate_audio_thread(text_part: str, index: int) -> None:
+        try:
+            audio_parts[index] = _generate_single_audio(text_part, voice)
+        except Exception as err:
+            errors.append(err)
+
+    threads = []
+    for index, text_part in enumerate(text_parts):
+        thread = threading.Thread(
+            target=generate_audio_thread,
+            args=(text_part, index),
+        )
+        thread.start()
+        threads.append(thread)
+
+    for thread in threads:
+        thread.join()
+
+    if errors:
+        raise errors[0]
+
+    return "".join(audio_parts)
+
+
 def tts(
     text: str,
     voice: str = "none",
     filename: str = "output.mp3",
     play_sound: bool = False,
 ) -> None:
-    # checking if the website is available
     global current_endpoint
 
-    if get_api_response().status_code == 200:
-        log("[+] TikTok TTS Service available!", "success")
-    else:
-        current_endpoint = (current_endpoint + 1) % 2
-        if get_api_response().status_code == 200:
-            log("[+] TTS Service available!", "success")
-        else:
-            log("[-] TTS Service not available and probably temporarily rate limited, try again later...", "error")
-            return
-
-    # checking if arguments are valid
-    if voice == "none":
-        log("[-] Please specify a voice", "error")
+    if not _select_available_endpoint():
+        return
+    if not _validate_request(text, voice):
         return
 
-    if voice not in VOICES:
-        log("[-] Voice not available", "error")
-        return
-
-    if not text:
-        log("[-] Please specify a text", "error")
-        return
-
-    # creating the audio file
     try:
         if len(text) < TEXT_BYTE_LIMIT:
-            audio = generate_audio((text), voice)
-            if current_endpoint == 0:
-                audio_base64_data = str(audio).split('"')[5]
-            else:
-                audio_base64_data = str(audio).split('"')[3].split(",")[1]
-
-            if audio_base64_data == "error":
-                log("[-] This voice is unavailable right now", "error")
-                return
-
+            audio_base64_data = _generate_single_audio(text, voice)
         else:
-            # Split longer text into smaller parts
-            text_parts = split_string(text, 299)
-            audio_base64_data = [None] * len(text_parts)
+            audio_base64_data = _generate_chunked_audio(text, voice)
 
-            # Define a thread function to generate audio for each text part
-            def generate_audio_thread(text_part, index):
-                audio = generate_audio(text_part, voice)
-                if current_endpoint == 0:
-                    base64_data = str(audio).split('"')[5]
-                else:
-                    base64_data = str(audio).split('"')[3].split(",")[1]
-
-                if audio_base64_data == "error":
-                    log("[-] This voice is unavailable right now", "error")
-                    return "error"
-
-                audio_base64_data[index] = base64_data
-
-            threads = []
-            for index, text_part in enumerate(text_parts):
-                # Create and start a new thread for each text part
-                thread = threading.Thread(
-                    target=generate_audio_thread, args=(text_part, index)
-                )
-                thread.start()
-                threads.append(thread)
-
-            # Wait for all threads to complete
-            for thread in threads:
-                thread.join()
-
-            # Concatenate the base64 data in the correct order
-            audio_base64_data = "".join(audio_base64_data)
+        if audio_base64_data == "error":
+            log("[-] This voice is unavailable right now", "error")
+            return
 
         save_audio_file(audio_base64_data, filename)
         log(f"[+] Audio file saved successfully as '{filename}'", "success")
         if play_sound:
             playsound(filename)
-
-    except Exception as e:
-        log(f"[-] An error occurred during TTS: {e}", "error")
+    except Exception as err:
+        log(f"[-] An error occurred during TTS: {err}", "error")

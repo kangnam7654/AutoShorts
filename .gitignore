@@ -13,8 +13,15 @@ subtitles/*
 /venv
 .venv
 client_secret.json
-main.py-oauth2.json
+*-oauth2.json
 .DS_Store
 Backend/output*
 Songs/
 venv/
+.env.save
+*.db
+contents/character/
+contents/musics/
+Backend/ref_voices/
+App/.build/
+App/.swiftpm/

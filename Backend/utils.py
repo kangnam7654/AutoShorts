@@ -1,13 +1,12 @@
-import os
-import sys
-import random
 import logging
+import os
+import random
 import shutil
-
+import sys
 from pathlib import Path
 from typing import Optional
-from termcolor import colored
 
+from termcolor import colored
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
@@ -15,152 +14,134 @@ TEMP_DIR = PROJECT_ROOT / "temp"
 SUBTITLES_DIR = PROJECT_ROOT / "subtitles"
 SONGS_DIR = PROJECT_ROOT / "Songs"
 FONTS_DIR = PROJECT_ROOT / "fonts"
+OUTPUT_DIR = PROJECT_ROOT / "output"
+FINAL_DIR = OUTPUT_DIR / "final"
+PROMPTS_DIR = OUTPUT_DIR / "prompts"
 ENV_FILE = PROJECT_ROOT / ".env"
 
-# Configure logging
+REQUIRED_ENV_VARS = ["PEXELS_API_KEY", "TIKTOK_SESSION_ID"]
+IMAGEMAGICK_CANDIDATES = ["magick", "magick.exe", "convert", "convert.exe"]
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def _remove_path(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+        logger.info(f"Removed directory: {path}")
+        return
+
+    path.unlink(missing_ok=True)
+    logger.info(f"Removed file: {path}")
+
+
 def clean_dir(path: str) -> None:
-    """
-    Removes every file in a directory.
-
-    Args:
-        path (str): Path to directory.
-
-    Returns:
-        None
-    """
+    """Remove every file and directory inside the target directory."""
     try:
         directory = Path(path).expanduser().resolve()
         directory.mkdir(parents=True, exist_ok=True)
         logger.info(f"Ensured directory exists: {directory}")
 
         for entry in directory.iterdir():
-            if entry.is_dir():
-                shutil.rmtree(entry)
-                logger.info(f"Removed directory: {entry}")
-            else:
-                entry.unlink(missing_ok=True)
-                logger.info(f"Removed file: {entry}")
+            _remove_path(entry)
 
         logger.info(colored(f"Cleaned {directory} directory", "green"))
-    except Exception as e:
-        logger.error(f"Error occurred while cleaning directory {path}: {str(e)}")
+    except Exception as err:
+        logger.error(f"Error occurred while cleaning directory {path}: {err}")
+
+
+def _song_candidates() -> list[Path]:
+    if not SONGS_DIR.exists():
+        return []
+
+    return [
+        song
+        for song in SONGS_DIR.iterdir()
+        if song.is_file() and song.suffix.lower() == ".mp3"
+    ]
 
 
 def choose_random_song() -> Optional[str]:
-    """
-    Chooses a random MP3 from the Songs/ directory.
-
-    Returns:
-        str: The path to the chosen song, or None if no MP3 files found.
-    """
+    """Choose a random MP3 file from `Songs/`."""
     try:
-        if not SONGS_DIR.exists():
-            return None
-
-        songs = [
-            song
-            for song in SONGS_DIR.iterdir()
-            if song.is_file() and song.suffix.lower() == ".mp3"
-        ]
-
+        songs = _song_candidates()
         if not songs:
             return None
 
-        song = random.choice(songs)
-        logger.info(colored(f"Chose song: {song}", "green"))
-        return str(song)
-    except Exception as e:
-        logger.error(
-            colored(f"Error occurred while choosing random song: {str(e)}", "red")
-        )
+        selected_song = random.choice(songs)
+        logger.info(colored(f"Chose song: {selected_song}", "green"))
+        return str(selected_song)
+    except Exception as err:
+        logger.error(colored(f"Error occurred while choosing random song: {err}", "red"))
+        return None
+
+
+def _configured_imagemagick_binary() -> Optional[str]:
+    configured_binary = os.getenv("IMAGEMAGICK_BINARY", "").strip().strip('"')
+    if not configured_binary:
+        return None
+
+    expanded_path = Path(configured_binary).expanduser()
+    if expanded_path.exists():
+        return str(expanded_path.resolve())
+
+    logger.warning(
+        colored("Configured IMAGEMAGICK_BINARY was not found on disk.", "yellow")
+    )
+    return None
 
 
 def resolve_imagemagick_binary() -> Optional[str]:
-    """
-    Resolves an ImageMagick executable path across Linux, macOS, and Windows.
-
-    Returns:
-        Optional[str]: Absolute executable path if found.
-    """
-    configured_binary = os.getenv("IMAGEMAGICK_BINARY", "").strip().strip('"')
+    """Resolve an ImageMagick executable path."""
+    configured_binary = _configured_imagemagick_binary()
     if configured_binary:
-        expanded = Path(configured_binary).expanduser()
-        if expanded.exists():
-            return str(expanded.resolve())
-        logger.warning(
-            colored("Configured IMAGEMAGICK_BINARY was not found on disk.", "yellow")
-        )
+        return configured_binary
 
-    candidate_names = [
-        "magick",
-        "magick.exe",
-        "convert",
-        "convert.exe",
-    ]
-
-    for candidate in candidate_names:
-        found = shutil.which(candidate)
-        if found:
-            return found
+    for candidate in IMAGEMAGICK_CANDIDATES:
+        resolved = shutil.which(candidate)
+        if resolved:
+            return resolved
 
     return None
 
 
+def _missing_env_vars() -> list[str]:
+    missing = []
+    for env_var in REQUIRED_ENV_VARS:
+        value = os.getenv(env_var)
+        if value is None or value == "":
+            missing.append(env_var)
+    return missing
+
+
+def _abort_with_env_error(message: str, hint: str = "") -> None:
+    logger.error(colored(message, "red"))
+    if hint:
+        logger.error(colored(hint, "yellow"))
+    sys.exit(1)
+
+
 def check_env_vars() -> None:
-    """
-    Checks if the necessary environment variables are set.
-
-    Returns:
-        None
-
-    Raises:
-        SystemExit: If any required environment variables are missing.
-    """
+    """Fail fast when required runtime configuration is missing."""
     try:
-        required_vars = ["PEXELS_API_KEY", "TIKTOK_SESSION_ID"]
-        missing_vars = []
-        for var in required_vars:
-            value = os.getenv(var)
-            if value is None or len(value) == 0:
-                missing_vars.append(var)
-
+        missing_vars = _missing_env_vars()
         if missing_vars:
-            missing_vars_str = ", ".join(missing_vars)
-            logger.error(
-                colored(
-                    f"The following environment variables are missing: {missing_vars_str}",
-                    "red",
-                )
+            _abort_with_env_error(
+                f"The following environment variables are missing: {', '.join(missing_vars)}",
+                "Please consult 'docs/configuration.md' for setup instructions.",
             )
-            logger.error(
-                colored(
-                    "Please consult 'docs/configuration.md' for setup instructions.",
-                    "yellow",
-                )
-            )
-            sys.exit(1)  # Aborts the program
 
         imagemagick_binary = resolve_imagemagick_binary()
         if not imagemagick_binary:
-            logger.error(
-                colored(
-                    "IMAGEMAGICK_BINARY is not set and no ImageMagick executable was detected in PATH.",
-                    "red",
-                )
+            _abort_with_env_error(
+                "IMAGEMAGICK_BINARY is not set and no ImageMagick executable was detected in PATH.",
+                "Set IMAGEMAGICK_BINARY in .env or install ImageMagick and add it to PATH.",
             )
-            logger.error(
-                colored(
-                    "Set IMAGEMAGICK_BINARY in .env or install ImageMagick and add it to PATH.",
-                    "yellow",
-                )
-            )
-            sys.exit(1)
 
         os.environ["IMAGEMAGICK_BINARY"] = imagemagick_binary
-    except Exception as e:
-        logger.error(f"Error occurred while checking environment variables: {str(e)}")
-        sys.exit(1)  # Aborts the program if an unexpected error occurs
+    except SystemExit:
+        raise
+    except Exception as err:
+        logger.error(f"Error occurred while checking environment variables: {err}")
+        sys.exit(1)

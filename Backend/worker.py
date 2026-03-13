@@ -14,7 +14,6 @@ from repository import (
 )
 from utils import ENV_FILE, SUBTITLES_DIR, TEMP_DIR, check_env_vars, clean_dir
 
-
 POLL_SECONDS = 1.0
 
 
@@ -32,6 +31,40 @@ def _log_event(job_id: str, message: str, level: str) -> None:
         session.commit()
 
 
+def _cleanup_runtime_dirs() -> None:
+    clean_dir(str(TEMP_DIR))
+    clean_dir(str(SUBTITLES_DIR))
+
+
+def _job_log_callback(job_id: str):
+    return lambda message, level: _log_event(job_id, message, level)
+
+
+def _complete_job(job_id: str, result_path: str) -> None:
+    with SessionLocal() as session:
+        mark_completed(session, job_id, result_path)
+
+
+def _cancel_job(job_id: str, message: str) -> None:
+    with SessionLocal() as session:
+        mark_cancelled(session, job_id, message)
+
+
+def _fail_job(job_id: str, message: str) -> None:
+    with SessionLocal() as session:
+        mark_failed(session, job_id, message)
+
+
+def _run_job(job) -> None:
+    job_id = job.id
+    result_path = run_generation_pipeline(
+        data=job.payload,
+        is_cancelled=lambda: _job_cancelled(job_id),
+        on_log=_job_log_callback(job_id),
+    )
+    _complete_job(job_id, result_path)
+
+
 def process_next_job() -> bool:
     with SessionLocal() as session:
         job = claim_next_queued_job(session)
@@ -39,25 +72,14 @@ def process_next_job() -> bool:
     if not job:
         return False
 
-    job_id = job.id
-
-    clean_dir(str(TEMP_DIR))
-    clean_dir(str(SUBTITLES_DIR))
+    _cleanup_runtime_dirs()
 
     try:
-        result_path = run_generation_pipeline(
-            data=job.payload,
-            is_cancelled=lambda: _job_cancelled(job_id),
-            on_log=lambda message, level: _log_event(job_id, message, level),
-        )
-        with SessionLocal() as session:
-            mark_completed(session, job_id, result_path)
+        _run_job(job)
     except PipelineCancelled as err:
-        with SessionLocal() as session:
-            mark_cancelled(session, job_id, str(err))
+        _cancel_job(job.id, str(err))
     except Exception as err:
-        with SessionLocal() as session:
-            mark_failed(session, job_id, str(err))
+        _fail_job(job.id, str(err))
 
     return True
 
@@ -68,9 +90,9 @@ def main() -> None:
     init_db()
 
     while True:
-        processed = process_next_job()
-        if not processed:
-            time.sleep(POLL_SECONDS)
+        if process_next_job():
+            continue
+        time.sleep(POLL_SECONDS)
 
 
 if __name__ == "__main__":

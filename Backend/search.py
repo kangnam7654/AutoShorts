@@ -1,66 +1,67 @@
+from typing import List
+
 import requests
 
-from typing import List
 from logstream import log
 
-def search_for_stock_videos(query: str, api_key: str, it: int, min_dur: int) -> List[str]:
-    """
-    Searches for stock videos based on a query.
 
-    Args:
-        query (str): The query to search for.
-        api_key (str): The API key to use.
+def _search_url(query: str, limit: int) -> str:
+    return f"https://api.pexels.com/videos/search?query={query}&per_page={limit}"
 
-    Returns:
-        List[str]: A list of stock videos.
-    """
-    
-    # Build headers
-    headers = {
-        "Authorization": api_key
-    }
 
-    # Build URL
-    qurl = f"https://api.pexels.com/videos/search?query={query}&per_page={it}"
+def _video_resolution(video_file: dict) -> int:
+    return int(video_file.get("width", 0)) * int(video_file.get("height", 0))
 
-    # Send the request
-    r = requests.get(qurl, headers=headers)
 
-    # Parse the response
-    response = r.json()
+def _best_download_url(video_files: list[dict]) -> str:
+    best_url = ""
+    best_resolution = -1
 
-    # Parse each video
-    raw_urls = []
-    video_url = []
-    video_res = 0
+    for video_file in video_files:
+        link = str(video_file.get("link", ""))
+        if ".com/video-files" not in link:
+            continue
+
+        resolution = _video_resolution(video_file)
+        if resolution <= best_resolution:
+            continue
+
+        best_url = link
+        best_resolution = resolution
+
+    return best_url
+
+
+def _matching_video_urls(videos: list[dict], min_duration: int) -> list[str]:
+    urls = []
+    for video in videos:
+        if int(video.get("duration", 0)) < min_duration:
+            continue
+
+        best_url = _best_download_url(video.get("video_files", []))
+        if best_url:
+            urls.append(best_url)
+
+    return urls
+
+
+def search_for_stock_videos(
+    query: str,
+    api_key: str,
+    it: int,
+    min_dur: int,
+) -> List[str]:
+    """Search Pexels for stock videos and return the best download URLs."""
+    headers = {"Authorization": api_key}
+    response = requests.get(_search_url(query, it), headers=headers)
+
     try:
-        # loop through each video in the result
-        for i in range(it):
-            #check if video has desired minimum duration
-            if response["videos"][i]["duration"] < min_dur:
-                continue
-            raw_urls = response["videos"][i]["video_files"]
-            temp_video_url = ""
-            
-            # loop through each url to determine the best quality
-            for video in raw_urls:
-                # Check if video has a valid download link
-                if ".com/video-files" in video["link"]:
-                    # Only save the URL with the largest resolution
-                    if (video["width"]*video["height"]) > video_res:
-                        temp_video_url = video["link"]
-                        video_res = video["width"]*video["height"]
-                        
-            # add the url to the return list if it's not empty
-            if temp_video_url != "":
-                video_url.append(temp_video_url)
-                
-    except Exception as e:
+        payload = response.json()
+        video_urls = _matching_video_urls(payload.get("videos", []), min_dur)
+    except Exception as err:
         log("[-] No Videos found.", "error")
-        log(str(e), "error")
+        log(str(err), "error")
+        video_urls = []
 
-    # Let user know
-    log(f"\t=> \"{query}\" found {len(video_url)} Videos", "info")
-
-    # Return the video url
-    return video_url
+    log(f'\t=> "{query}" found {len(video_urls)} Videos', "info")
+    return video_urls

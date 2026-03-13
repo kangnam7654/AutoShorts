@@ -12,22 +12,6 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def create_job(session: Session, payload: dict, max_attempts: int = 1) -> GenerationJob:
-    job = GenerationJob(
-        id=str(uuid4()),
-        status="queued",
-        payload=payload,
-        max_attempts=max_attempts,
-        cancel_requested=False,
-    )
-    session.add(job)
-    session.flush()
-    append_event(session, job.id, "queued", "info", "Job queued.")
-    session.commit()
-    session.refresh(job)
-    return job
-
-
 def append_event(
     session: Session,
     job_id: str,
@@ -48,12 +32,39 @@ def append_event(
     return event
 
 
+def _update_job_timestamp(job: GenerationJob) -> None:
+    job.updated_at = utcnow()
+
+
+def _commit_and_refresh(session: Session, job: GenerationJob) -> GenerationJob:
+    session.commit()
+    session.refresh(job)
+    return job
+
+
+def create_job(session: Session, payload: dict, max_attempts: int = 1) -> GenerationJob:
+    job = GenerationJob(
+        id=str(uuid4()),
+        status="queued",
+        payload=payload,
+        max_attempts=max_attempts,
+        cancel_requested=False,
+    )
+    session.add(job)
+    session.flush()
+    append_event(session, job.id, "queued", "info", "Job queued.")
+    return _commit_and_refresh(session, job)
+
+
 def get_job(session: Session, job_id: str) -> Optional[GenerationJob]:
     return session.get(GenerationJob, job_id)
 
 
 def list_job_events(
-    session: Session, job_id: str, after_id: int = 0, limit: int = 200
+    session: Session,
+    job_id: str,
+    after_id: int = 0,
+    limit: int = 200,
 ) -> list[GenerationEvent]:
     stmt = (
         select(GenerationEvent)
@@ -69,6 +80,30 @@ def list_job_events(
     return list(session.scalars(stmt).all())
 
 
+def _mark_cancel_requested(session: Session, job: GenerationJob) -> None:
+    job.cancel_requested = True
+    _update_job_timestamp(job)
+    append_event(
+        session,
+        job.id,
+        "cancel_requested",
+        "warning",
+        "Cancellation requested.",
+    )
+
+
+def _cancel_queued_job(session: Session, job: GenerationJob) -> None:
+    job.status = "cancelled"
+    job.completed_at = utcnow()
+    append_event(
+        session,
+        job.id,
+        "cancelled",
+        "warning",
+        "Job cancelled before execution.",
+    )
+
+
 def request_cancel(session: Session, job_id: str) -> bool:
     job = get_job(session, job_id)
     if not job:
@@ -77,109 +112,138 @@ def request_cancel(session: Session, job_id: str) -> bool:
     if job.status in ("completed", "failed", "cancelled"):
         return True
 
-    job.cancel_requested = True
-    job.updated_at = utcnow()
-    append_event(
-        session, job.id, "cancel_requested", "warning", "Cancellation requested."
-    )
-
+    _mark_cancel_requested(session, job)
     if job.status == "queued":
-        job.status = "cancelled"
-        job.completed_at = utcnow()
-        append_event(
-            session, job.id, "cancelled", "warning", "Job cancelled before execution."
-        )
+        _cancel_queued_job(session, job)
 
     session.commit()
     return True
 
 
-def claim_next_queued_job(session: Session) -> Optional[GenerationJob]:
-    dialect = session.bind.dialect.name if session.bind else ""
-
-    if dialect == "postgresql":
-        row = session.execute(
-            text(
-                """
-                SELECT id
-                FROM generation_jobs
-                WHERE status = 'queued' AND cancel_requested = false
-                ORDER BY created_at ASC
-                FOR UPDATE SKIP LOCKED
-                LIMIT 1
-                """
-            )
-        ).first()
-        if not row:
-            return None
-        job = get_job(session, row[0])
-    else:
-        stmt = (
-            select(GenerationJob)
-            .where(
-                and_(
-                    GenerationJob.status == "queued",
-                    GenerationJob.cancel_requested.is_(False),
-                )
-            )
-            .order_by(GenerationJob.created_at.asc())
-            .limit(1)
+def _claim_next_postgres_job(session: Session) -> Optional[GenerationJob]:
+    row = session.execute(
+        text(
+            """
+            SELECT id
+            FROM generation_jobs
+            WHERE status = 'queued' AND cancel_requested = false
+            ORDER BY created_at ASC
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1
+            """
         )
-        job = session.scalars(stmt).first()
+    ).first()
+    if not row:
+        return None
+    return get_job(session, row[0])
+
+
+def _claim_next_generic_job(session: Session) -> Optional[GenerationJob]:
+    stmt = (
+        select(GenerationJob)
+        .where(
+            and_(
+                GenerationJob.status == "queued",
+                GenerationJob.cancel_requested.is_(False),
+            )
+        )
+        .order_by(GenerationJob.created_at.asc())
+        .limit(1)
+    )
+    return session.scalars(stmt).first()
+
+
+def _start_job(session: Session, job: GenerationJob) -> GenerationJob:
+    job.status = "running"
+    job.attempt_count = (job.attempt_count or 0) + 1
+    job.started_at = utcnow()
+    _update_job_timestamp(job)
+    append_event(session, job.id, "running", "info", "Job started.")
+    return _commit_and_refresh(session, job)
+
+
+def claim_next_queued_job(session: Session) -> Optional[GenerationJob]:
+    dialect_name = session.bind.dialect.name if session.bind else ""
+
+    if dialect_name == "postgresql":
+        job = _claim_next_postgres_job(session)
+    else:
+        job = _claim_next_generic_job(session)
 
     if not job:
         return None
 
-    job.status = "running"
-    job.attempt_count = (job.attempt_count or 0) + 1
-    job.started_at = utcnow()
-    job.updated_at = utcnow()
-    append_event(session, job.id, "running", "info", "Job started.")
+    return _start_job(session, job)
+
+
+def _complete_job(
+    session: Session,
+    job: GenerationJob,
+    *,
+    status: str,
+    event_type: str,
+    level: str,
+    message: str,
+    payload: Optional[dict] = None,
+    error_message: Optional[str] = None,
+    result_path: Optional[str] = None,
+) -> None:
+    job.status = status
+    job.result_path = result_path
+    job.error_message = error_message
+    job.completed_at = utcnow()
+    _update_job_timestamp(job)
+    append_event(session, job.id, event_type, level, message, payload)
     session.commit()
-    session.refresh(job)
-    return job
 
 
 def mark_completed(session: Session, job_id: str, result_path: str) -> None:
     job = get_job(session, job_id)
     if not job:
         return
-    job.status = "completed"
-    job.result_path = result_path
-    job.error_message = None
-    job.completed_at = utcnow()
-    job.updated_at = utcnow()
-    append_event(
+
+    _complete_job(
         session,
-        job.id,
-        "complete",
-        "success",
-        "Video generated successfully.",
-        {"path": result_path},
+        job,
+        status="completed",
+        event_type="complete",
+        level="success",
+        message="Video generated successfully.",
+        payload={"path": result_path},
+        result_path=result_path,
     )
-    session.commit()
 
 
 def mark_cancelled(
-    session: Session, job_id: str, reason: str = "Job cancelled."
+    session: Session,
+    job_id: str,
+    reason: str = "Job cancelled.",
 ) -> None:
     job = get_job(session, job_id)
     if not job:
         return
-    job.status = "cancelled"
-    job.completed_at = utcnow()
-    job.updated_at = utcnow()
-    append_event(session, job.id, "cancelled", "warning", reason)
-    session.commit()
+
+    _complete_job(
+        session,
+        job,
+        status="cancelled",
+        event_type="cancelled",
+        level="warning",
+        message=reason,
+    )
 
 
 def mark_failed(session: Session, job_id: str, error_message: str) -> None:
     job = get_job(session, job_id)
     if not job:
         return
-    job.status = "failed"
-    job.error_message = error_message
-    job.completed_at = utcnow()
-    job.updated_at = utcnow()
-    append_event(session, job.id, "error", "error", error_message)
-    session.commit()
+
+    _complete_job(
+        session,
+        job,
+        status="failed",
+        event_type="error",
+        level="error",
+        message=error_message,
+        error_message=error_message,
+    )

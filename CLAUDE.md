@@ -35,10 +35,10 @@ curl http://localhost:8080/api/models         # API smoke test
 ```
 
 ### Tests
-No test suite exists yet. If added, use pytest:
 ```bash
-uv run pytest -q                                           # all tests
-uv run pytest tests/test_file.py::test_name -q             # single test
+uv run python -m pytest tests/ -q                          # all tests
+uv run python -m pytest tests/test_file.py::test_name -q   # single test
+uv run python -m pytest --cov --cov-fail-under=80          # coverage check
 ```
 
 ## Architecture

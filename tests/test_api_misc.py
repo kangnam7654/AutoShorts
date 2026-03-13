@@ -21,7 +21,7 @@ def test_models_endpoint_success_response(client, monkeypatch):
     def fake_list_models():
         return ["llama3.1:8b", "qwen3:8b"], "qwen3:8b"
 
-    monkeypatch.setattr(main, "list_ollama_models", fake_list_models)
+    monkeypatch.setattr(main, "list_models", fake_list_models)
 
     response = client.get("/api/models")
 
@@ -38,7 +38,7 @@ def test_models_endpoint_fallback_on_error(client, monkeypatch):
     def fake_list_models():
         raise RuntimeError("ollama unavailable")
 
-    monkeypatch.setattr(main, "list_ollama_models", fake_list_models)
+    monkeypatch.setattr(main, "list_models", fake_list_models)
 
     response = client.get("/api/models")
 

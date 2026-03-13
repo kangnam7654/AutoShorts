@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+__pycache__
+*.pyc
+*.pyo
+.venv
+node_modules
+temp/
+subtitles/
+output/
+moneyprinter.db
+*.db
+.claude/

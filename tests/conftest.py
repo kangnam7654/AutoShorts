@@ -13,6 +13,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["VEO_USE_VERTEX"] = "false"
 
 from db import Base  # noqa: E402
 import models  # noqa: F401,E402
