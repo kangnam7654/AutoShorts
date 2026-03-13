@@ -131,7 +131,8 @@ class TestGenerateVideo:
                     2, "center,center", "#FFFF00",
                 )
 
-        assert result == "output.mp4"
+        assert result.endswith(".mp4")
+        assert result != "output.mp4"  # UUID-based name
 
     @patch("video.SubtitlesClip")
     @patch("video.AudioFileClip")

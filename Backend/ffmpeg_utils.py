@@ -8,6 +8,16 @@ from utils import FONTS_DIR, TEMP_DIR  # noqa: F401  FONTS_DIR re-exported for c
 from video import generate_video
 
 
+def _run_ffmpeg(args: list[str]) -> None:
+    """Run an ffmpeg command and raise with stderr on failure."""
+    try:
+        subprocess.run(args, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"ffmpeg failed (exit {e.returncode}):\n{e.stderr}"
+        ) from e
+
+
 def mux_video_audio(video_path: str, audio_path: str, output_path: str) -> None:
     """Mux the video stream from one file with audio from another file.
 
@@ -17,31 +27,18 @@ def mux_video_audio(video_path: str, audio_path: str, output_path: str) -> None:
     stream-copied without re-encoding.  The output is trimmed to the
     shorter of the two inputs (``-shortest``).
     """
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            video_path,
-            "-i",
-            audio_path,
-            "-map",
-            "0:v:0",
-            "-map",
-            "1:a:0",
-            "-c:v",
-            "copy",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
-            "-shortest",
-            output_path,
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    _run_ffmpeg([
+        "ffmpeg", "-y",
+        "-i", video_path,
+        "-i", audio_path,
+        "-map", "0:v:0",
+        "-map", "1:a:0",
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-shortest",
+        output_path,
+    ])
 
 
 def render_subtitled_video(

@@ -382,7 +382,8 @@ def generate_video(
         target_duration
     )
 
-    output_path = TEMP_DIR / "output.mp4"
+    output_name = f"{uuid.uuid4()}.mp4"
+    output_path = TEMP_DIR / output_name
     try:
         result.write_videofile(
             str(output_path),
@@ -398,4 +399,4 @@ def generate_video(
         audio.close()
         base_video.close()
 
-    return "output.mp4"
+    return output_name

@@ -51,7 +51,7 @@ VALID_PRIVACY_STATUSES = ("public", "private", "unlisted")
 
 
 def _oauth_store_path() -> Path:
-    return BASE_DIR / f"{Path(sys.argv[0]).name}-oauth2.json"
+    return BASE_DIR / "youtube-oauth2.json"
 
 
 def _youtube_flow():

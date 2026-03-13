@@ -65,7 +65,11 @@ def _get_video_dimensions(video_path: str) -> tuple[int, int]:
         check=True,
     )
     streams = json.loads(probe.stdout)["streams"]
-    video_stream = next(stream for stream in streams if stream["codec_type"] == "video")
+    video_stream = next(
+        (s for s in streams if s["codec_type"] == "video"), None
+    )
+    if video_stream is None:
+        raise ValueError(f"No video stream found in: {video_path}")
     return int(video_stream["width"]), int(video_stream["height"])
 
 
@@ -231,7 +235,7 @@ def _replace_subtitle_text(subtitles_path: str, script: str, max_chars: int = 0)
     if not blocks:
         return
 
-    lines = [line.strip() for line in script.replace("\n", "\n").split("\n") if line.strip()]
+    lines = [line.strip() for line in script.split("\n") if line.strip()]
     if not lines:
         return
 
@@ -335,13 +339,21 @@ def _mix_background_music(
     return mixed_path
 
 
-def _maybe_upload(final_output: str, emit) -> None:
+def _maybe_upload(final_output: str, title: str, description: str, emit) -> None:
     emit("[+] Uploading to YouTube...", "info")
     try:
         from youtube import upload_video
 
-        upload_video(final_output)
-        emit("[+] Uploaded!", "success")
+        response = upload_video(
+            video_path=final_output,
+            title=title or Path(final_output).stem,
+            description=description or "",
+            category="22",
+            keywords="",
+            privacy_status="public",
+        )
+        video_id = response.get("id", "unknown") if response else "unknown"
+        emit(f"[+] Uploaded! Video ID: {video_id}", "success")
     except Exception as err:
         emit(f"[!] Upload failed: {err}", "error")
 
@@ -358,6 +370,8 @@ def run_finalize_pipeline(
     script: str = "",
     output_path: str = "",
     upload: bool = False,
+    upload_title: str = "",
+    upload_description: str = "",
     on_log=None,
 ) -> str:
     """Finalize a Veo video with subtitles, optional music, and optional upload."""
@@ -390,8 +404,9 @@ def run_finalize_pipeline(
         voice=language,
     )
 
+    script = script.strip() if script else ""
     if script:
-        emit("[4/6] Correcting subtitles with LLM...", "info")
+        emit("[4/6] Correcting subtitles...", "info")
         video_w, _ = _get_video_dimensions(working_video)
         max_chars = int(video_w * 0.85 / (font_size * 0.9)) if font_size > 0 else 0
         _correct_subtitles_if_needed(subtitles_path, script, max_chars=max_chars)
@@ -430,7 +445,7 @@ def run_finalize_pipeline(
         mux_video_audio(rendered_video_path, working_video, final_output)
 
     if upload:
-        _maybe_upload(final_output, emit)
+        _maybe_upload(final_output, upload_title, upload_description, emit)
 
     emit(f"[+] Output: {final_output}", "success")
     return final_output

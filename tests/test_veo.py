@@ -135,14 +135,14 @@ class TestMultiPartVideo:
 
         with patch.object(veo, "_client", return_value=mock_client):
             with patch.object(veo, "OUTPUT_DIR", tmp_path):
-                result = veo.generate_multi_part_video(prompts=prompts, output_path=output)
+                with patch("shutil.copy2"):
+                    result = veo.generate_multi_part_video(prompts=prompts, output_path=output)
 
         assert result == output
         # 3 calls: 1 initial + 2 extensions
         assert mock_client.models.generate_videos.call_count == 3
-        # 4 saves: 3 per-part + 1 final
-        assert mock_video_file.save.call_count == 4
-        mock_video_file.save.assert_any_call(output)
+        # 3 saves: per-part only (final uses shutil.copy2)
+        assert mock_video_file.save.call_count == 3
 
     def test_first_part_has_duration_extensions_do_not(self, tmp_path):
         import veo
@@ -156,7 +156,8 @@ class TestMultiPartVideo:
 
         with patch.object(veo, "_client", return_value=mock_client):
             with patch.object(veo, "OUTPUT_DIR", tmp_path):
-                veo.generate_multi_part_video(prompts=prompts)
+                with patch("shutil.copy2"):
+                    veo.generate_multi_part_video(prompts=prompts)
 
         calls = mock_client.models.generate_videos.call_args_list
 
@@ -186,7 +187,8 @@ class TestMultiPartVideo:
 
         with patch.object(veo, "_client", return_value=mock_client):
             with patch.object(veo, "OUTPUT_DIR", tmp_path):
-                veo.generate_multi_part_video(prompts=prompts)
+                with patch("shutil.copy2"):
+                    veo.generate_multi_part_video(prompts=prompts)
 
         # Second call should pass video1's video object
         second_call = mock_client.models.generate_videos.call_args_list[1]
@@ -201,7 +203,8 @@ class TestMultiPartVideo:
 
         with patch.object(veo, "_client", return_value=mock_client):
             with patch.object(veo, "OUTPUT_DIR", tmp_path):
-                veo.generate_multi_part_video(prompts=prompts)
+                with patch("shutil.copy2"):
+                    veo.generate_multi_part_video(prompts=prompts)
 
         assert mock_client.models.generate_videos.call_count == 1
 

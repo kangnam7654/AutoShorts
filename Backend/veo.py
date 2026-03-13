@@ -18,6 +18,7 @@ VEO_MODEL = os.getenv("VEO_MODEL", "veo-3.1-generate-preview")
 VEO_ASPECT_RATIO = "9:16"
 VEO_RESOLUTION = os.getenv("VEO_RESOLUTION", "720p")
 POLL_INTERVAL = 10
+MAX_WAIT_SECONDS = int(os.getenv("VEO_MAX_WAIT_SECONDS", "600"))
 
 VEO_USE_VERTEX = os.getenv("VEO_USE_VERTEX", "").strip().lower() in ("1", "true", "yes")
 VERTEX_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT", os.getenv("GCLOUD_PROJECT", ""))
@@ -106,9 +107,13 @@ def _save_video(client, video_obj, output_path: str) -> None:
 
 
 def _wait_for_operation(client, operation, on_log=None):
-    """Poll an operation until it completes."""
+    """Poll an operation until it completes or times out."""
     elapsed = 0
     while not operation.done:
+        if elapsed >= MAX_WAIT_SECONDS:
+            raise TimeoutError(
+                f"Veo operation did not complete within {MAX_WAIT_SECONDS}s."
+            )
         time.sleep(POLL_INTERVAL)
         elapsed += POLL_INTERVAL
         _emit(f"[Veo] Generating... ({elapsed}s elapsed)", on_log=on_log)
@@ -139,9 +144,9 @@ def _build_generate_config(types_module, *, resolution: str, duration: int | Non
     config_kwargs = {
         "resolution": resolution,
         "number_of_videos": 1,
+        "aspect_ratio": VEO_ASPECT_RATIO,
     }
     if duration is not None:
-        config_kwargs["aspect_ratio"] = VEO_ASPECT_RATIO
         config_kwargs["duration_seconds"] = duration
     if VEO_USE_VERTEX:
         config_kwargs["output_gcs_uri"] = _gcs_output_uri()
@@ -166,37 +171,37 @@ def _validate_generation_result(operation, *, part_label: str, allow_partial: bo
     return False
 
 
-def detect_veo_subtitles(video_path: str, region_height: int = 200) -> bool:
-    """Detect broken Veo-rendered subtitles in the bottom region using edge detection."""
+def detect_veo_subtitles(video_path: str, num_samples: int = 5) -> bool:
+    """Detect broken Veo-rendered text using EasyOCR on sampled frames."""
     import cv2
-    import numpy as np
 
+    try:
+        import easyocr
+    except ImportError:
+        _emit("[Veo] easyocr not installed, skipping subtitle detection.", "warning")
+        return False
+
+    reader = easyocr.Reader(["ko", "en"], gpu=False, verbose=False)
     cap = cv2.VideoCapture(video_path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    if total_frames <= 0 or height <= 0:
+    if total_frames <= 0:
         cap.release()
         return False
 
-    # Sample at 25%, 50%, 75% of video
-    for ratio in (0.25, 0.5, 0.75):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, int(total_frames * ratio))
+    frames_with_text = 0
+    for i in range(num_samples):
+        frame_idx = int(total_frames * (i + 1) / (num_samples + 1))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, frame = cap.read()
         if not ret:
             continue
-
-        bottom = frame[height - region_height :, :]
-        gray = cv2.cvtColor(bottom, cv2.COLOR_BGR2GRAY)
-        edges = cv2.Canny(gray, 50, 150)
-        edge_ratio = float(np.count_nonzero(edges)) / edges.size
-
-        if edge_ratio > 0.01:
-            cap.release()
-            return True
+        results = reader.readtext(frame, paragraph=False)
+        if any(conf > 0.3 for _, _, conf in results):
+            frames_with_text += 1
 
     cap.release()
-    return False
+    return frames_with_text >= 2
 
 
 def clean_veo_subtitles(video_path: str, height: int = 200) -> str:
@@ -280,7 +285,7 @@ def generate_video(
         "config": _build_generate_config(
             types,
             resolution=resolution_name,
-            duration=int(duration),
+            duration=int(float(duration)),
         ),
     }
     if image_path:
@@ -392,7 +397,10 @@ def generate_multi_part_video(
     if current_video is None:
         raise RuntimeError("Veo did not produce a final video.")
 
-    # Also save the final accumulated video
-    _save_video(client, current_video.video, resolved_output_path)
+    # Copy the last saved part as the final output (avoid re-downloading)
+    import shutil
+    last_part_path = str(parts_dir / f"{base_stem}_part{min(index, total_parts)}.mp4")
+    if last_part_path != resolved_output_path:
+        shutil.copy2(last_part_path, resolved_output_path)
     _emit(f"[Veo] Final video saved: {resolved_output_path}", "success", on_log=on_log)
     return resolved_output_path
