@@ -66,6 +66,7 @@ result = generate_multi_part_video(
 - **모델**: `veo-3.1-generate-preview` (Vertex AI)
 - **구성**: Part 1 (8초) + Part 2 extend (+7초) = 약 15초
 - **해상도**: 720x1280 (9:16)
+- **타임아웃**: 600초 (환경변수 `VEO_MAX_WAIT_SECONDS`로 조정 가능)
 - **출력**: `output/YYYY-MM-DD/raw/` 디렉토리
 
 ### 캐릭터 이미지 (레퍼런스)
@@ -209,13 +210,11 @@ mux_video_audio(rendered, mixed_path, final_output)
 ## 7. YouTube 업로드
 
 ```python
-import sys
-sys.argv = ['cli.py']  # OAuth 토큰 경로용
 from youtube import upload_video
 
 response = upload_video(
     video_path='final/output.mp4',
-    title='제목 💫',
+    title='제목',
     description='설명\n\n#해시태그',
     category='22',              # People & Blogs
     keywords='사주,재물운,...',
@@ -225,8 +224,7 @@ video_id = response['id']
 ```
 
 ### OAuth 설정
-- 토큰 파일: `Backend/cli.py-oauth2.json`
-- `sys.argv = ['cli.py']` 설정 필수 (토큰 파일명 결정)
+- 토큰 파일: `Backend/youtube-oauth2.json` (고정 경로, `sys.argv` 무관)
 - 채널 ID: `UCV4fN1vnlY-o4gqlqRr_duw`
 
 ## 디렉토리 구조
