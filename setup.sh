@@ -38,7 +38,7 @@ fi
 
 print_banner() {
   printf '\n'
-  printf '%s%sMoneyPrinter Interactive Setup%s\n' "$BOLD" "$MAGENTA" "$RESET"
+  printf '%s%sAutoShorts Interactive Setup%s\n' "$BOLD" "$MAGENTA" "$RESET"
   printf '%s--------------------------------%s\n' "$MAGENTA" "$RESET"
   printf '%sThis script helps you prepare your local environment.%s\n\n' "$CYAN" "$RESET"
 }

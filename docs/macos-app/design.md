@@ -1,7 +1,7 @@
-# MoneyPrinter macOS App Design
+# AutoShorts macOS App Design
 
 ## 목적
-MoneyPrinter finalize 파이프라인을 감싸는 네이티브 macOS 앱.
+AutoShorts finalize 파이프라인을 감싸는 네이티브 macOS 앱.
 .app 더블클릭 → 파일 드래그앤드롭 → 버튼 클릭 → 완성.
 
 ## 기술 스택
@@ -13,7 +13,7 @@ MoneyPrinter finalize 파이프라인을 감싸는 네이티브 macOS 앱.
 
 ```
 ┌─────────────────────────────────────┐
-│  MoneyPrinter                    ─ □ x │
+│  AutoShorts                    ─ □ x │
 ├─────────────────────────────────────┤
 │                                     │
 │  ┌───────────────────────────────┐  │
@@ -74,8 +74,8 @@ MoneyPrinter finalize 파이프라인을 감싸는 네이티브 macOS 앱.
 App/
 ├── Package.swift
 └── Sources/
-    └── MoneyPrinter/
-        ├── MoneyPrinterApp.swift     # @main 엔트리포인트
+    └── AutoShorts/
+        ├── AutoShortsApp.swift     # @main 엔트리포인트
         ├── ContentView.swift         # 메인 UI
         ├── DropZone.swift            # 드래그앤드롭 컴포넌트
         └── PipelineRunner.swift      # CLI 서브프로세스 실행

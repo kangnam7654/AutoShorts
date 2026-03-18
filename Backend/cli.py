@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MoneyPrinter CLI - Generate YouTube Shorts from the terminal."""
+"""AutoShorts CLI - Generate YouTube Shorts from the terminal."""
 
 import argparse
 import os
@@ -71,7 +71,7 @@ def list_voices() -> None:
 def generate(args: argparse.Namespace) -> None:
     from legacy.pipeline import run_generation_pipeline
 
-    print(color("\n=== MoneyPrinter CLI ===", "1;36"))
+    print(color("\n=== AutoShorts CLI ===", "1;36"))
     print(f"  Subject: {args.subject}")
     print(f"  Model:   {args.model}")
     print(f"  Voice:   {args.voice}")
@@ -117,7 +117,7 @@ def compose(args: argparse.Namespace) -> None:
         print(color("Error: --script or --script-file required.", "1;31"))
         sys.exit(1)
 
-    print(color("\n=== MoneyPrinter Compose ===", "1;36"))
+    print(color("\n=== AutoShorts Compose ===", "1;36"))
     print(f"  Video:      {args.video}")
     print(f"  Voice:      {args.voice}")
     print(f"  Keep audio: {'Yes' if args.keep_audio else 'No'}")
@@ -147,7 +147,7 @@ def compose(args: argparse.Namespace) -> None:
 
 def veo(args: argparse.Namespace) -> None:
     """Full Veo pipeline: [LLM prompts →] Veo video → narration → finalize."""
-    print(color("\n=== MoneyPrinter Veo ===", "1;36"))
+    print(color("\n=== AutoShorts Veo ===", "1;36"))
 
     try:
         # --- Step 1: Generate video ---
@@ -327,7 +327,7 @@ def finalize(args: argparse.Namespace) -> None:
         with open(args.script_file, "r", encoding="utf-8") as f:
             script = f.read()
 
-    print(color("\n=== MoneyPrinter Finalize ===", "1;36"))
+    print(color("\n=== AutoShorts Finalize ===", "1;36"))
     print(f"  Video:  {args.video}")
     print(f"  Music:  {args.music or '(none)'}")
     if args.music:

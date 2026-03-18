@@ -1,6 +1,6 @@
 # Quickstart
 
-MoneyPrinter has two pipelines: **Veo** (primary, CLI) and **Stock footage** (legacy, web UI).
+AutoShorts has two pipelines: **Veo** (primary, CLI) and **Stock footage** (legacy, web UI).
 
 ## Veo Pipeline (Primary)
 
@@ -30,13 +30,13 @@ See [Veo Workflow](veo-workflow/design.md) and [Production Pipeline](veo-workflo
 
 ## Stock Footage Pipeline (Legacy)
 
-Run MoneyPrinter locally with an Ollama model.
+Run AutoShorts locally with an Ollama model.
 
 ## 1) Clone repository
 
 ```bash
-git clone https://github.com/FujiwaraChoki/MoneyPrinter.git
-cd MoneyPrinter
+git clone https://github.com/kangnam7654/AutoShorts.git
+cd AutoShorts
 ```
 
 ## 2) Quick setup (recommended)

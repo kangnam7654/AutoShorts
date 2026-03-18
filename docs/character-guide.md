@@ -1,6 +1,6 @@
 # Character Guide
 
-MoneyPrinter uses a reference image to maintain consistent character appearance across videos. This guide explains how to set up your own character.
+AutoShorts uses a reference image to maintain consistent character appearance across videos. This guide explains how to set up your own character.
 
 ## How It Works
 

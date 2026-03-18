@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MoneyPrinter automates YouTube Shorts creation. Two main pipelines:
+AutoShorts automates YouTube Shorts creation. Two main pipelines:
 
 1. **Stock footage pipeline** (legacy) — Ollama script + Pexels stock clips + TikTok TTS + moviepy composition
 2. **Veo pipeline** (primary) — Google Veo 3.1 AI video generation + Whisper subtitles + BGM mixing + YouTube upload

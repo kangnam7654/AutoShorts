@@ -2,7 +2,7 @@
 
 ## Per-Video Cost
 
-Each MoneyPrinter video is 15 seconds (8s create + 7s extend = 2 API calls).
+Each AutoShorts video is 15 seconds (8s create + 7s extend = 2 API calls).
 
 | Model | Cost/sec | Per video (15s) | Monthly (1/day) | Monthly (3/day) |
 |-------|----------|-----------------|-----------------|-----------------|

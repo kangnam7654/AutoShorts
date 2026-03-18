@@ -1,4 +1,4 @@
-# MoneyPrinter
+# AutoShorts
 
 AI 영상 생성으로 유튜브 쇼츠 제작을 자동화합니다. 프롬프트를 작성하고, Google Veo 3.1로 영상을 생성하고, 자막을 넣고, 유튜브에 업로드 — 명령어 하나로 끝.
 
@@ -41,7 +41,7 @@ Standard 모델을 권장합니다. Fast 모델은 파트 간 캐릭터 일관�
 
 ```bash
 git clone https://github.com/kangnam7654/AutoShorts.git
-cd MoneyPrinter
+cd AutoShorts
 uv sync
 cp .env.example .env
 ```

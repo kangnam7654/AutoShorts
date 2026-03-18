@@ -1,10 +1,10 @@
 # Architecture
 
-MoneyPrinter now uses a database-backed queue architecture designed for reliability, restart safety, and future scaling.
+AutoShorts now uses a database-backed queue architecture designed for reliability, restart safety, and future scaling.
 
 ## Two Pipelines
 
-MoneyPrinter has two independent pipelines:
+AutoShorts has two independent pipelines:
 
 1. **Veo Pipeline (primary)** — CLI-driven. Veo 3.1 AI video generation → Whisper subtitles → BGM → YouTube upload.
 2. **Stock Footage Pipeline (legacy)** — Web UI-driven. LLM script → Pexels stock clips → TTS → moviepy composition.

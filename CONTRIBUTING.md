@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in contributing to MoneyPrinter!
+Thanks for your interest in contributing to AutoShorts!
 
 ## Reporting Issues
 
@@ -21,8 +21,8 @@ Thanks for your interest in contributing to MoneyPrinter!
 ## Development Setup
 
 ```bash
-git clone https://github.com/your-username/MoneyPrinter.git
-cd MoneyPrinter
+git clone https://github.com/your-username/AutoShorts.git
+cd AutoShorts
 uv sync --group dev
 cp .env.example .env
 ```

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Veo API를 MoneyPrinter에 통합하여 "주제 입력 → 영상 생성 → 후처리 → 업로드" 전 과정을 자동화한다.
+Veo API를 AutoShorts에 통합하여 "주제 입력 → 영상 생성 → 후처리 → 업로드" 전 과정을 자동화한다.
 
 ## Pipeline
 

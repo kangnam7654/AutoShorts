@@ -1,4 +1,4 @@
-# MoneyPrinter
+# AutoShorts
 
 Automate YouTube Shorts creation with AI-generated video. Write a prompt, generate a video with Google Veo 3.1, add subtitles, and upload to YouTube — all from one CLI command.
 
@@ -43,7 +43,7 @@ See [Veo pricing](https://cloud.google.com/vertex-ai/generative-ai/pricing#video
 
 ```bash
 git clone https://github.com/kangnam7654/AutoShorts.git
-cd MoneyPrinter
+cd AutoShorts
 uv sync
 cp .env.example .env
 ```

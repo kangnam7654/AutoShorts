@@ -1,6 +1,6 @@
 # Configuration
 
-MoneyPrinter reads configuration from `.env` (project root).
+AutoShorts reads configuration from `.env` (project root).
 
 Use `.env.example` as your template.
 

@@ -1,6 +1,6 @@
 # Testing
 
-MoneyPrinter uses `pytest` with `pytest-cov` for backend tests. Current: **397 tests, 91% coverage**.
+AutoShorts uses `pytest` with `pytest-cov` for backend tests. Current: **397 tests, 91% coverage**.
 
 ## Install test dependencies
 

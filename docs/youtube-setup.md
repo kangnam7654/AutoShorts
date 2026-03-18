@@ -1,6 +1,6 @@
 # YouTube Upload Setup
 
-MoneyPrinter can upload generated videos directly to YouTube. This requires a one-time OAuth2 setup.
+AutoShorts can upload generated videos directly to YouTube. This requires a one-time OAuth2 setup.
 
 ## 1. Create a Google Cloud Project
 

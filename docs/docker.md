@@ -1,6 +1,6 @@
 # Docker
 
-Run MoneyPrinter frontend, API, worker, and Postgres with Docker Compose.
+Run AutoShorts frontend, API, worker, and Postgres with Docker Compose.
 
 ## 1) Prepare environment
 

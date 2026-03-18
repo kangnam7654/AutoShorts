@@ -1,4 +1,4 @@
-# AGENTS Guide for MoneyPrinter
+# AGENTS Guide for AutoShorts
 
 This file is the operating manual for coding agents working in this repository.
 Follow it before making changes.

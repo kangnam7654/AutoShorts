@@ -1,4 +1,4 @@
-# MoneyPrinter Docs
+# AutoShorts Docs
 
 > [한국어 README](README.ko.md)
 
