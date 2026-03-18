@@ -42,7 +42,7 @@ See [Veo pricing](https://cloud.google.com/vertex-ai/generative-ai/pricing#video
 ### 1. Install
 
 ```bash
-git clone https://github.com/kangnam/MoneyPrinter.git
+git clone https://github.com/kangnam7654/AutoShorts.git
 cd MoneyPrinter
 uv sync
 cp .env.example .env

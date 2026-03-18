@@ -40,7 +40,7 @@ Standard 모델을 권장합니다. Fast 모델은 파트 간 캐릭터 일관�
 ### 1. 설치
 
 ```bash
-git clone https://github.com/kangnam/MoneyPrinter.git
+git clone https://github.com/kangnam7654/AutoShorts.git
 cd MoneyPrinter
 uv sync
 cp .env.example .env
