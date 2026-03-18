@@ -13,7 +13,7 @@ if str(BACKEND) not in sys.path:
 
 class TestTtsGenerate:
     @patch("tts_utils.TTS_PROVIDER", "tiktok")
-    @patch("tiktokvoice.tts")
+    @patch("legacy.tiktokvoice.tts")
     def test_routes_to_tiktok(self, mock_tts):
         from tts_utils import tts_generate
 
@@ -22,7 +22,7 @@ class TestTtsGenerate:
         mock_tts.assert_called_once_with("hello", "en_us_001", filename="/tmp/out.mp3")
 
     @patch("tts_utils.TTS_PROVIDER", "qwen")
-    @patch("qwen_tts.tts")
+    @patch("legacy.qwen_tts.tts")
     def test_routes_to_qwen(self, mock_tts):
         from tts_utils import tts_generate
 
@@ -30,7 +30,7 @@ class TestTtsGenerate:
 
         mock_tts.assert_called_once_with("hello", "Sohee", filename="/tmp/out.wav")
 
-    @patch("qwen_tts.tts_clone")
+    @patch("legacy.qwen_tts.tts_clone")
     def test_clone_mode_uses_qwen_clone(self, mock_clone):
         from tts_utils import tts_generate
 

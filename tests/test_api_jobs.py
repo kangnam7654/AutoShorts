@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from repository import append_event, create_job, get_job, list_job_events
+from legacy.repository import append_event, create_job, get_job, list_job_events
 
 
 os.environ.setdefault("PEXELS_API_KEY", "test-key")
@@ -10,7 +10,7 @@ os.environ.setdefault("TIKTOK_SESSION_ID", "test-session")
 os.environ.setdefault("IMAGEMAGICK_BINARY", "/bin/echo")
 os.environ.setdefault("DATABASE_URL", "sqlite:///moneyprinter_api_bootstrap.db")
 
-import main
+import legacy.main as main
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ from uuid import uuid4
 from sqlalchemy import and_, select, text
 from sqlalchemy.orm import Session
 
-from models import GenerationEvent, GenerationJob
+from legacy.models import GenerationEvent, GenerationJob
 
 
 def utcnow() -> datetime:

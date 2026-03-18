@@ -2,7 +2,32 @@
 
 MoneyPrinter now uses a database-backed queue architecture designed for reliability, restart safety, and future scaling.
 
-## Overview
+## Two Pipelines
+
+MoneyPrinter has two independent pipelines:
+
+1. **Veo Pipeline (primary)** — CLI-driven. Veo 3.1 AI video generation → Whisper subtitles → BGM → YouTube upload.
+2. **Stock Footage Pipeline (legacy)** — Web UI-driven. LLM script → Pexels stock clips → TTS → moviepy composition.
+
+## Veo Pipeline Architecture
+
+```mermaid
+flowchart LR
+    S[veo-shorts-writer\nskill] -->|prompt JSON| CLI[cli.py veo]
+    CLI --> V[veo.py\nVeo 3.1 API]
+    V -->|Part 1 create 8s| GCS[(GCS Bucket)]
+    V -->|Part 2 extend +7s| GCS
+    GCS -->|raw .mp4| F[finalize.py]
+    F -->|1. extract audio| W[Whisper MLX]
+    W -->|SRT timing| F
+    F -->|2. correct subs| F
+    F -->|3. burn subs + BGM| YT[youtube.py\nOAuth2 upload]
+    YT --> Y((YouTube))
+```
+
+## Stock Footage Pipeline Architecture
+
+### Overview
 
 - `Frontend` submits generation requests and polls job status/events.
 - `API (Flask)` validates input and enqueues jobs in Postgres.

@@ -17,7 +17,7 @@ def _jwt(payload: dict) -> str:
 
 
 def test_decode_jwt_payload_returns_claims():
-    import codex_auth
+    import legacy.codex_auth as codex_auth
 
     payload = {"sub": "123", "https://api.openai.com/auth": {"chatgpt_account_id": "acct_1"}}
     token = _jwt(payload)
@@ -26,7 +26,7 @@ def test_decode_jwt_payload_returns_claims():
 
 
 def test_is_expired_respects_refresh_margin():
-    import codex_auth
+    import legacy.codex_auth as codex_auth
 
     tokens = {
         "saved_at": time.time() - 1000,
@@ -37,7 +37,7 @@ def test_is_expired_respects_refresh_margin():
 
 
 def test_auth_url_contains_state_and_challenge():
-    import codex_auth
+    import legacy.codex_auth as codex_auth
 
     url = codex_auth._auth_url("challenge123", "state456")
 

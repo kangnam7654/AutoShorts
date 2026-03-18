@@ -63,7 +63,7 @@ def _openai_client():
     from openai import OpenAI
 
     if AI_PROVIDER == "codex":
-        from codex_auth import get_access_token
+        from legacy.codex_auth import get_access_token
 
         token = get_access_token()
         return OpenAI(api_key=token, base_url=CODEX_BASE_URL)
@@ -498,7 +498,7 @@ def _generate_codex(prompt: str, model_name: str) -> str:
     """Call ChatGPT backend API using Codex OAuth token."""
     import requests as _requests
 
-    from codex_auth import get_access_token, get_account_id
+    from legacy.codex_auth import get_access_token, get_account_id
 
     token = get_access_token()
     account_id = get_account_id()

@@ -9,7 +9,7 @@ os.environ.setdefault("TIKTOK_SESSION_ID", "test-session")
 os.environ.setdefault("IMAGEMAGICK_BINARY", "/bin/echo")
 os.environ.setdefault("DATABASE_URL", "sqlite:///moneyprinter_api_misc_bootstrap.db")
 
-import main
+import legacy.main as main
 
 
 @pytest.fixture

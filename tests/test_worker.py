@@ -1,5 +1,5 @@
-from repository import create_job, get_job, list_job_events
-import worker
+from legacy.repository import create_job, get_job, list_job_events
+import legacy.worker as worker
 
 
 def _disable_cleanup(monkeypatch):

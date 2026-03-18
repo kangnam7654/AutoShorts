@@ -38,9 +38,9 @@ docker compose up --build
 
 ## 4) Access apps
 
-- Frontend: `http://localhost:8001`
+- Frontend: `http://localhost:3000`
 - Backend API: `http://localhost:8080`
-- Postgres: `localhost:5432`
+- Postgres: `localhost:5433` (mapped from container's 5432)
 
 ## 5) Verify model listing
 

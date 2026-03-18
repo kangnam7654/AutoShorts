@@ -1,5 +1,6 @@
 import base64
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 
 import requests
@@ -56,6 +57,7 @@ ENDPOINTS = [
     "https://tiktoktts.com/api/tiktok-tts",
 ]
 current_endpoint = 0
+_endpoint_lock = threading.Lock()
 TEXT_BYTE_LIMIT = 300
 
 
@@ -86,20 +88,21 @@ def _endpoint_healthcheck_url(endpoint_url: str) -> str:
 
 def get_api_response() -> requests.Response:
     endpoint_url = ENDPOINTS[current_endpoint]
-    return requests.get(_endpoint_healthcheck_url(endpoint_url))
+    return requests.get(_endpoint_healthcheck_url(endpoint_url), timeout=10)
 
 
 def _select_available_endpoint() -> bool:
     global current_endpoint
 
-    if get_api_response().status_code == 200:
-        log("[+] TikTok TTS Service available!", "success")
-        return True
+    with _endpoint_lock:
+        if get_api_response().status_code == 200:
+            log("[+] TikTok TTS Service available!", "success")
+            return True
 
-    current_endpoint = (current_endpoint + 1) % len(ENDPOINTS)
-    if get_api_response().status_code == 200:
-        log("[+] TTS Service available!", "success")
-        return True
+        current_endpoint = (current_endpoint + 1) % len(ENDPOINTS)
+        if get_api_response().status_code == 200:
+            log("[+] TTS Service available!", "success")
+            return True
 
     log(
         "[-] TTS Service not available and probably temporarily rate limited, try again later...",
@@ -114,20 +117,32 @@ def save_audio_file(base64_data: str, filename: str = "output.mp3") -> None:
         file.write(audio_bytes)
 
 
-def generate_audio(text: str, voice: str) -> bytes:
+def generate_audio(text: str, voice: str) -> dict:
     response = requests.post(
         ENDPOINTS[current_endpoint],
         headers={"Content-Type": "application/json"},
         json={"text": text, "voice": voice},
+        timeout=120,
     )
-    return response.content
+    response.raise_for_status()
+    try:
+        return response.json()
+    except ValueError as err:
+        raise RuntimeError(
+            f"TikTok TTS returned non-JSON response ({len(response.content)} bytes)"
+        ) from err
 
 
-def _extract_base64_audio(audio: bytes) -> str:
-    payload = str(audio)
-    if current_endpoint == 0:
-        return payload.split('"')[5]
-    return payload.split('"')[3].split(",")[1]
+def _extract_base64_audio(data: dict) -> str:
+    # Endpoint 0 (weilnet): {"success": true, "data": "<base64>"}
+    # Endpoint 1 (tiktoktts): {"data": "data:audio/mpeg;base64,<base64>"}
+    raw = data.get("data")
+    if not raw:
+        error_msg = data.get("error", data.get("message", str(data)))
+        raise RuntimeError(f"TikTok TTS error: {error_msg}")
+    if "," in raw:
+        return raw.split(",", 1)[1]
+    return raw
 
 
 def _validate_request(text: str, voice: str) -> bool:
@@ -150,28 +165,15 @@ def _generate_single_audio(text: str, voice: str) -> str:
 def _generate_chunked_audio(text: str, voice: str) -> str:
     text_parts = split_string(text, TEXT_BYTE_LIMIT - 1)
     audio_parts = [""] * len(text_parts)
-    errors = []
 
-    def generate_audio_thread(text_part: str, index: int) -> None:
-        try:
-            audio_parts[index] = _generate_single_audio(text_part, voice)
-        except Exception as err:
-            errors.append(err)
-
-    threads = []
-    for index, text_part in enumerate(text_parts):
-        thread = threading.Thread(
-            target=generate_audio_thread,
-            args=(text_part, index),
-        )
-        thread.start()
-        threads.append(thread)
-
-    for thread in threads:
-        thread.join()
-
-    if errors:
-        raise errors[0]
+    with ThreadPoolExecutor(max_workers=len(text_parts)) as executor:
+        futures = {
+            executor.submit(_generate_single_audio, part, voice): idx
+            for idx, part in enumerate(text_parts)
+        }
+        for future in as_completed(futures):
+            idx = futures[future]
+            audio_parts[idx] = future.result()  # raises on error
 
     return "".join(audio_parts)
 

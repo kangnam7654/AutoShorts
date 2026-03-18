@@ -10,9 +10,9 @@ if str(BACKEND) not in sys.path:
 
 
 class TestSearchForStockVideos:
-    @patch("search.requests.get")
+    @patch("legacy.search.requests.get")
     def test_returns_best_resolution_urls(self, mock_get):
-        from search import search_for_stock_videos
+        from legacy.search import search_for_stock_videos
 
         mock_get.return_value = MagicMock(
             json=lambda: {
@@ -38,9 +38,9 @@ class TestSearchForStockVideos:
 
         assert urls == ["https://cdn.com/video-files/large.mp4"]
 
-    @patch("search.requests.get")
+    @patch("legacy.search.requests.get")
     def test_returns_empty_list_on_bad_payload(self, mock_get):
-        from search import search_for_stock_videos
+        from legacy.search import search_for_stock_videos
 
         mock_get.return_value = MagicMock(json=lambda: {"videos": None})
 

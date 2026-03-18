@@ -46,6 +46,19 @@ Veo 3.1로 3D 애니메이션 영상을 생성하고, 후처리로 깨진 텍스
 - 대사를 프롬프트 안에 직접 포함: `Exact spoken Korean dialogue: "대사"`
 - 9:16 세로 비율 명시
 
+### 프롬프트 연출 규칙 (검증 기반)
+- **배경은 추상적 공간** — "dark mystical space" 기본. 구체적 장소(연못, 숲) 지정 시 캐릭터 배치 오류 발생
+- **캐릭터는 "stands"** — 앉기/눕기는 VEO가 비정상 포즈로 해석
+- **배경 효과는 부유 입자만** — particles, dust, light orbs 등. 동물/건축물 금지
+- **물/액체 묘사 금지** — 캐릭터가 물에 잠기는 결과 초래
+- **카메라는 close-up → pull back** — 패닝/회전/빠른 컷 금지
+- **이펙트 전환은 은은하게** — "bursting/exploding" 금지, "slowly glow/gradually drift" 사용
+- **Part 2에 의상 고정** — "wearing the EXACT same outfit and colors as Part 1" 명시
+
+### 모델 선택
+- **Standard** (`veo-3.1-generate-preview`): 프로덕션용. 캐릭터 일관성 양호
+- **Fast** (`veo-3.1-fast-generate-preview`): 프로덕션 부적합. 파트 간 캐릭터가 완전히 달라짐. 테스트용으로만 사용
+
 ### 저장 위치
 ```
 output/YYYY-MM-DD/prompts/d{일차}_{포맷}_{키워드}.json
@@ -59,7 +72,7 @@ from veo import generate_multi_part_video
 result = generate_multi_part_video(
     prompts=prompts,              # JSON에서 로드
     output_path="output/.../raw/파일명.mp4",
-    image_path="contents/character/jeong_bin/jeongbin_사색.png",  # 레퍼런스
+    image_path="path/to/your/character.png",  # 레퍼런스 이미지
 )
 ```
 
@@ -70,12 +83,9 @@ result = generate_multi_part_video(
 - **출력**: `output/YYYY-MM-DD/raw/` 디렉토리
 
 ### 캐릭터 이미지 (레퍼런스)
-| 파일 | 용도 |
-|------|------|
-| `jeongbin_사색.png` | 진지/심각한 주제 |
-| `jeongbin_미소.png` | 따뜻한/긍정적 주제 |
-| `jeongbin_정면.png` | 범용 |
-| `jeongbin_사색_폰.png` | 폰 관련 장면 |
+`--image` 옵션으로 자신만의 캐릭터 이미지를 전달. Veo가 레퍼런스 이미지의 스타일을 영상에 반영한다.
+- `contents/character/` 디렉토리에 캐릭터 이미지를 저장하는 것을 권장
+- 표정/포즈별로 여러 이미지를 준비하면 다양한 연출 가능
 
 ## 3. EasyOCR + LaMa 인페인팅
 
@@ -132,31 +142,21 @@ ffmpeg -y \
   clean_video.mp4
 ```
 
-## 5. 자막 타이밍
+## 5. 자막 생성 (자동)
 
-### Whisper로 raw 타이밍 추출
-```python
-from video import generate_subtitles
-srt_path = generate_subtitles(audio_path=audio, sentences=[], audio_clips=[], voice='ko')
+finalize 파이프라인이 자동으로 처리:
+1. Whisper로 오디오에서 타이밍 추출 (mlx-community/whisper-small-mlx)
+2. `--script` 옵션의 대사 텍스트로 Whisper 인식 결과를 교정
+3. 음성 gap 기반 자동 그룹핑 → SRT 생성
+
+```bash
+# CLI에서 자동 처리 (별도 작업 불필요)
+uv run python Backend/cli.py veo \
+  --prompt-file prompts.json --language ko --font-size 55 \
+  -o output/final/video.mp4
 ```
 
-### 수동 SRT 작성
-Whisper 타이밍을 참고하여 대사별로 수동 SRT 작성.
-자동 그룹핑이 1블록으로 합쳐지는 경우가 있으므로 수동이 안정적.
-
-```srt
-1
-00:00:00,000 --> 00:00:03,780
-첫 번째 대사
-
-2
-00:00:04,220 --> 00:00:07,880
-두 번째 대사
-
-3
-00:00:10,100 --> 00:00:14,460
-세 번째 대사
-```
+대사 텍스트는 prompt JSON의 `dialogue` 필드에서 자동 추출.
 
 ## 6. Finalize (자막 번 + BGM)
 
@@ -238,7 +238,7 @@ output/
     separated/  # demucs 분리 결과 (필요 시)
 
 contents/
-  character/jeong_bin/   # 캐릭터 레퍼런스 이미지
+  character/            # 캐릭터 레퍼런스 이미지 (사용자 추가)
   musics/                # BGM 파일
   plans/                 # 콘텐츠 기획서
 ```
@@ -254,11 +254,8 @@ d{일차}_{포맷}_{키워드}.json/mp4
 
 ## 콘텐츠 현황
 
+각 사용자가 자신의 영상 업로드 현황을 이 테이블에서 관리할 수 있다.
+
 | 날짜 | 제목 | Video ID | 유형 |
 |------|------|----------|------|
-| 2026-03-09 | 수기운 강한 사람의 존재감 | TS_Hb8Jj99I | 유형 |
-| 2026-03-09 | 판이 바뀌는 신호 | g_OKUUsih_A | 공감 |
-| 2026-03-10 | 답장 보류의 지혜 | tgaPfJcojCw | 조언 |
-| 2026-03-12 | 화기운 강한 사람의 연애 | PQP8uSgCKXo | 유형 |
-| 2026-03-12 | 돈이 들어오기 직전의 조짐 | sPaeerSemo4 | 공감 |
-| 2026-03-13 | 재물운 트이기 전 잃는 것들 | C_PQ6gr2kWw | 공감 |
+| (예시) | 내 첫 번째 영상 | abc123 | 공감 |

@@ -2,9 +2,9 @@ import time
 
 from dotenv import load_dotenv
 
-from db import SessionLocal, init_db
-from pipeline import PipelineCancelled, run_generation_pipeline
-from repository import (
+from legacy.db import SessionLocal, init_db
+from legacy.pipeline import PipelineCancelled, run_generation_pipeline
+from legacy.repository import (
     append_event,
     claim_next_queued_job,
     get_job,

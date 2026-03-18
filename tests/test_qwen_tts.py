@@ -10,7 +10,7 @@ BACKEND = Path(__file__).resolve().parents[1] / "Backend"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
-from qwen_tts import VOICES, VOICE_LANG_MAP, tts, tts_clone, DEFAULT_REF_AUDIO, DEFAULT_REF_TEXT
+from legacy.qwen_tts import VOICES, VOICE_LANG_MAP, tts, tts_clone, DEFAULT_REF_AUDIO, DEFAULT_REF_TEXT
 
 
 class TestVoiceConfig:
@@ -35,18 +35,18 @@ class TestVoiceConfig:
 
 
 class TestTts:
-    @patch("qwen_tts._get_model")
+    @patch("legacy.qwen_tts._get_model")
     def test_skips_empty_text(self, mock_model):
         tts("", "Ryan", "/tmp/test.wav")
         mock_model.assert_not_called()
 
-    @patch("qwen_tts._get_model")
+    @patch("legacy.qwen_tts._get_model")
     def test_skips_whitespace_only(self, mock_model):
         tts("   ", "Ryan", "/tmp/test.wav")
         mock_model.assert_not_called()
 
-    @patch("qwen_tts.sf.write")
-    @patch("qwen_tts._get_model")
+    @patch("legacy.qwen_tts.sf.write")
+    @patch("legacy.qwen_tts._get_model")
     def test_uses_correct_language_for_korean_voice(self, mock_get_model, mock_write):
         import numpy as np
 
@@ -63,8 +63,8 @@ class TestTts:
         assert call_kwargs[1]["language"] == "Korean"
         assert call_kwargs[1]["speaker"] == "Sohee"
 
-    @patch("qwen_tts.sf.write")
-    @patch("qwen_tts._get_model")
+    @patch("legacy.qwen_tts.sf.write")
+    @patch("legacy.qwen_tts._get_model")
     def test_uses_english_for_ryan(self, mock_get_model, mock_write):
         import numpy as np
 
@@ -80,8 +80,8 @@ class TestTts:
         call_kwargs = model.generate_custom_voice.call_args
         assert call_kwargs[1]["language"] == "English"
 
-    @patch("qwen_tts.sf.write")
-    @patch("qwen_tts._get_model")
+    @patch("legacy.qwen_tts.sf.write")
+    @patch("legacy.qwen_tts._get_model")
     def test_falls_back_to_ryan_for_unknown_voice(self, mock_get_model, mock_write):
         import numpy as np
 
@@ -98,7 +98,7 @@ class TestTts:
         assert call_kwargs[1]["speaker"] == "Ryan"
         assert call_kwargs[1]["language"] == "English"
 
-    @patch("qwen_tts._get_model")
+    @patch("legacy.qwen_tts._get_model")
     def test_raises_on_model_error(self, mock_get_model):
         model = MagicMock()
         model.generate_custom_voice.side_effect = RuntimeError("GPU error")
@@ -116,13 +116,13 @@ class TestTtsClone:
     def test_default_ref_text_is_nonempty(self):
         assert len(DEFAULT_REF_TEXT) > 10
 
-    @patch("qwen_tts._get_base_model")
+    @patch("legacy.qwen_tts._get_base_model")
     def test_skips_empty_text(self, mock_model):
         tts_clone("", filename="/tmp/test.wav")
         mock_model.assert_not_called()
 
-    @patch("qwen_tts.sf.write")
-    @patch("qwen_tts._get_base_model")
+    @patch("legacy.qwen_tts.sf.write")
+    @patch("legacy.qwen_tts._get_base_model")
     def test_calls_generate_with_ref_audio(self, mock_get_base, mock_write):
         import numpy as np
 
@@ -140,8 +140,8 @@ class TestTtsClone:
         assert call_kwargs["ref_text"] == DEFAULT_REF_TEXT
         assert call_kwargs["lang_code"] == "ko"
 
-    @patch("qwen_tts.sf.write")
-    @patch("qwen_tts._get_base_model")
+    @patch("legacy.qwen_tts.sf.write")
+    @patch("legacy.qwen_tts._get_base_model")
     def test_custom_ref_audio(self, mock_get_base, mock_write):
         import numpy as np
 
@@ -159,7 +159,7 @@ class TestTtsClone:
         assert call_kwargs["ref_text"] == "Custom text."
         assert call_kwargs["lang_code"] == "en"
 
-    @patch("qwen_tts._get_base_model")
+    @patch("legacy.qwen_tts._get_base_model")
     def test_raises_on_model_error(self, mock_get_base):
         model = MagicMock()
         model.generate.side_effect = RuntimeError("clone error")

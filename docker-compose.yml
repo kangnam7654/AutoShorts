@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-moneyprinter}
       POSTGRES_USER: ${POSTGRES_USER:-moneyprinter}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-moneyprinter}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -32,7 +32,7 @@ services:
     env_file: .env
     environment:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-moneyprinter}:${POSTGRES_PASSWORD:-moneyprinter}@postgres:5432/${POSTGRES_DB:-moneyprinter}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-moneyprinter}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-moneyprinter}
       IMAGEMAGICK_BINARY: /usr/bin/convert
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -54,7 +54,7 @@ services:
     env_file: .env
     environment:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-moneyprinter}:${POSTGRES_PASSWORD:-moneyprinter}@postgres:5432/${POSTGRES_DB:-moneyprinter}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-moneyprinter}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-moneyprinter}
       IMAGEMAGICK_BINARY: /usr/bin/convert
     extra_hosts:
       - "host.docker.internal:host-gateway"

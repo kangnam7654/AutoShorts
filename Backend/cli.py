@@ -33,7 +33,7 @@ def log_handler(message: str, level: str) -> None:
 # ---------------------------------------------------------------------------
 
 def do_auth() -> None:
-    from codex_auth import login
+    from legacy.codex_auth import login
 
     print(color("Signing in with your ChatGPT account...", "1;36"))
     try:
@@ -59,9 +59,9 @@ def list_models() -> None:
 def list_voices() -> None:
     tts_provider = os.getenv("TTS_PROVIDER", "qwen").strip().lower()
     if tts_provider == "qwen":
-        from qwen_tts import VOICES
+        from legacy.qwen_tts import VOICES
     else:
-        from tiktokvoice import VOICES
+        from legacy.tiktokvoice import VOICES
     print(f"Provider: {tts_provider}")
     print("Available voices:")
     for v in VOICES:
@@ -69,7 +69,7 @@ def list_voices() -> None:
 
 
 def generate(args: argparse.Namespace) -> None:
-    from pipeline import run_generation_pipeline
+    from legacy.pipeline import run_generation_pipeline
 
     print(color("\n=== MoneyPrinter CLI ===", "1;36"))
     print(f"  Subject: {args.subject}")

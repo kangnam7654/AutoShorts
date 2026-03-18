@@ -4,7 +4,7 @@ from typing import Optional
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from db import Base
+from legacy.db import Base
 
 
 class Project(Base):

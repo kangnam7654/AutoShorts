@@ -1,5 +1,7 @@
 # Refactoring: Shared Utilities Extraction
 
+> **Status: COMPLETED** — `tts_utils.py`, `ffmpeg_utils.py` 구현 완료. 테스트 포함 (91% coverage).
+
 ## Problem
 
 compose.py, narrate.py, pipeline.py, finalize.py에 동일하거나 거의 동일한 함수들이 중복 정의되어 있음.

@@ -14,7 +14,7 @@ from moviepy import (
 
 from gpt import generate_metadata, generate_script, get_search_terms
 from logstream import log
-from search import search_for_stock_videos
+from legacy.search import search_for_stock_videos
 from tts_utils import default_voice, split_sentences, tts_extension, tts_generate, voice_language_prefix
 from utils import BASE_DIR, PROJECT_ROOT, TEMP_DIR, choose_random_song
 from video import combine_videos, generate_subtitles, generate_video, save_video

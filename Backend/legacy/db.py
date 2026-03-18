@@ -42,7 +42,7 @@ SessionLocal = sessionmaker(
 
 
 def _import_models() -> None:
-    from models import Artifact, GenerationEvent, GenerationJob, Project, Script  # noqa: F401
+    from legacy.models import Artifact, GenerationEvent, GenerationJob, Project, Script  # noqa: F401
 
 
 def init_db() -> None:

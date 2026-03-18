@@ -6,10 +6,10 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sqlalchemy import and_, case, select
 
-from db import SessionLocal, init_db
+from legacy.db import SessionLocal, init_db
 from gpt import list_models
 from logstream import log
-from repository import create_job, get_job, list_job_events, request_cancel
+from legacy.repository import create_job, get_job, list_job_events, request_cancel
 from utils import ENV_FILE, SONGS_DIR, check_env_vars, clean_dir
 
 load_dotenv(ENV_FILE)
@@ -62,7 +62,7 @@ def _serialize_event(event) -> dict[str, Any]:
 
 
 def _active_job_query():
-    from models import GenerationJob
+    from legacy.models import GenerationJob
 
     return (
         select(GenerationJob)
@@ -200,4 +200,4 @@ def cancel_latest_running_job():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host=HOST, port=PORT, threaded=True)
+    app.run(debug=os.getenv("FLASK_DEBUG", "false").lower() == "true", host=HOST, port=PORT, threaded=True)

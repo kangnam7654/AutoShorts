@@ -1,5 +1,35 @@
 # Quickstart
 
+MoneyPrinter has two pipelines: **Veo** (primary, CLI) and **Stock footage** (legacy, web UI).
+
+## Veo Pipeline (Primary)
+
+### Prerequisites
+- Python 3.11+, [uv](https://docs.astral.sh/uv/), FFmpeg
+- Google Cloud project with Veo API enabled
+
+### Setup
+```bash
+uv sync
+cp .env.example .env
+# Set GOOGLE_API_KEY, VEO_USE_VERTEX, GOOGLE_CLOUD_PROJECT in .env
+```
+
+### Generate and upload
+```bash
+uv run python Backend/cli.py veo \
+  --prompt-file output/2026-03-17/prompts/d05_공감_귀인.json \
+  --image path/to/your/character.png \
+  --language ko --font-size 55 --upload \
+  -o output/2026-03-17/final/d05_공감_귀인.mp4
+```
+
+See [Veo Workflow](veo-workflow/design.md) and [Production Pipeline](veo-workflow/production-pipeline.md) for details.
+
+---
+
+## Stock Footage Pipeline (Legacy)
+
 Run MoneyPrinter locally with an Ollama model.
 
 ## 1) Clone repository
@@ -88,8 +118,7 @@ uv run python Backend/worker.py
 In a new terminal:
 
 ```bash
-cd Frontend
-python3 -m http.server 3000
+python3 -m http.server 3000 --directory Frontend
 ```
 
 Open `http://localhost:3000`.

@@ -27,7 +27,7 @@ def tts_generate(
 ) -> None:
     """Unified TTS: routes to Qwen (with optional clone) or TikTok."""
     if clone:
-        from qwen_tts import tts_clone
+        from legacy.qwen_tts import tts_clone
 
         tts_clone(
             text,
@@ -39,12 +39,12 @@ def tts_generate(
         return
 
     if TTS_PROVIDER == "qwen":
-        from qwen_tts import tts
+        from legacy.qwen_tts import tts
 
         tts(text, voice, filename=filename)
         return
 
-    from tiktokvoice import tts
+    from legacy.tiktokvoice import tts
 
     tts(text, voice, filename=filename)
 
@@ -65,7 +65,7 @@ def default_voice(purpose: str = "generation") -> str:
 def voice_language_prefix(voice: str) -> str:
     """Extract language prefix from voice name."""
     if TTS_PROVIDER == "qwen":
-        from qwen_tts import VOICE_LANG_MAP
+        from legacy.qwen_tts import VOICE_LANG_MAP
 
         return VOICE_LANG_MAP.get(voice, "en")
     return voice[:2]

@@ -1,27 +1,58 @@
-__pycache__
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+/venv
+
+# Environment & Secrets
 .env
-temp/*
-sounds/*
-output/*
-images/*
+.env.save
+.env.local
+client_secret.json
+*-oauth2.json
+*.key
+*.pem
+*.p12
+
+# Test & Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Output & Media
+output/
+temp/
+sounds/
+images/
+subtitles/
+Songs/
+Backend/output*
 *.zip
 *.srt
 *.mp4
 *.mp3
-.history
-subtitles/*
-/venv
-.venv
-client_secret.json
-*-oauth2.json
-.DS_Store
-Backend/output*
-Songs/
-venv/
-.env.save
+*.wav
+
+# Database
 *.db
+
+# Personal content (users should add their own)
 contents/character/
 contents/musics/
-Backend/ref_voices/
+contents/plans/
+Backend/legacy/ref_voices/
+
+# macOS
+.DS_Store
+
+# IDE
+.history
+.vscode/
+.idea/
+
+# Swift (macOS App)
 App/.build/
 App/.swiftpm/

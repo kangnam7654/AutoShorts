@@ -15,8 +15,8 @@ if str(BACKEND_DIR) not in sys.path:
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["VEO_USE_VERTEX"] = "false"
 
-from db import Base  # noqa: E402
-import models  # noqa: F401,E402
+from legacy.db import Base  # noqa: E402
+import legacy.models  # noqa: F401,E402
 
 
 @pytest.fixture

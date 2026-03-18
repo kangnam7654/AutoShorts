@@ -1,5 +1,7 @@
 # Veo 대사 직접 생성 (Dialogue-in-Prompt)
 
+> **Status: COMPLETED** — Veo 3.1이 대사를 직접 생성. TTS 오버레이 기본 비활성화, `--add-narration`으로 fallback 가능.
+
 ## 목적
 
 현재 Veo 파이프라인은 무음 영상을 생성한 뒤 TTS로 대사를 오버레이한다.

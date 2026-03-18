@@ -40,19 +40,19 @@ def work_dirs(tmp_path):
 class TestStockVideoPipelineE2E:
     """Full stock-video generation pipeline: script → search → TTS → combine → render → output."""
 
-    @patch("pipeline._cleanup_ffmpeg_processes")
-    @patch("pipeline.shutil.copy2")
-    @patch("pipeline.generate_metadata", return_value=("My Title", "My Desc", ["kw1", "kw2"]))
-    @patch("pipeline.generate_video")
-    @patch("pipeline.combine_videos")
-    @patch("pipeline.generate_subtitles")
-    @patch("pipeline.concatenate_audioclips")
-    @patch("pipeline.AudioFileClip")
-    @patch("pipeline.tts_generate")
-    @patch("pipeline.save_video")
-    @patch("pipeline.search_for_stock_videos")
-    @patch("pipeline.get_search_terms")
-    @patch("pipeline.generate_script")
+    @patch("legacy.pipeline._cleanup_ffmpeg_processes")
+    @patch("legacy.pipeline.shutil.copy2")
+    @patch("legacy.pipeline.generate_metadata", return_value=("My Title", "My Desc", ["kw1", "kw2"]))
+    @patch("legacy.pipeline.generate_video")
+    @patch("legacy.pipeline.combine_videos")
+    @patch("legacy.pipeline.generate_subtitles")
+    @patch("legacy.pipeline.concatenate_audioclips")
+    @patch("legacy.pipeline.AudioFileClip")
+    @patch("legacy.pipeline.tts_generate")
+    @patch("legacy.pipeline.save_video")
+    @patch("legacy.pipeline.search_for_stock_videos")
+    @patch("legacy.pipeline.get_search_terms")
+    @patch("legacy.pipeline.generate_script")
     def test_end_to_end_no_music_no_upload(
         self,
         mock_script,
@@ -70,7 +70,7 @@ class TestStockVideoPipelineE2E:
         mock_cleanup,
         work_dirs,
     ):
-        import pipeline
+        import legacy.pipeline as pipeline
 
         # Script generation
         mock_script.return_value = "Cats are adorable. Dogs are loyal."
@@ -131,21 +131,21 @@ class TestStockVideoPipelineE2E:
         all_messages = " ".join(msg for msg, _ in logs)
         assert "Script generated" in all_messages or "generated" in all_messages.lower()
 
-    @patch("pipeline._cleanup_ffmpeg_processes")
-    @patch("pipeline._remux_with_ffmpeg")
-    @patch("pipeline._write_mixed_audio")
-    @patch("pipeline.choose_random_song")
-    @patch("pipeline.generate_metadata", return_value=("T", "D", ["k"]))
-    @patch("pipeline.generate_video", return_value="out.mp4")
-    @patch("pipeline.combine_videos", return_value="/tmp/combined.mp4")
-    @patch("pipeline.generate_subtitles", return_value="/tmp/subs.srt")
-    @patch("pipeline.concatenate_audioclips")
-    @patch("pipeline.AudioFileClip")
-    @patch("pipeline.tts_generate")
-    @patch("pipeline.save_video", return_value="/tmp/stock.mp4")
-    @patch("pipeline.search_for_stock_videos", return_value=["url1"])
-    @patch("pipeline.get_search_terms", return_value=["term"])
-    @patch("pipeline.generate_script", return_value="Script text. Second sentence.")
+    @patch("legacy.pipeline._cleanup_ffmpeg_processes")
+    @patch("legacy.pipeline._remux_with_ffmpeg")
+    @patch("legacy.pipeline._write_mixed_audio")
+    @patch("legacy.pipeline.choose_random_song")
+    @patch("legacy.pipeline.generate_metadata", return_value=("T", "D", ["k"]))
+    @patch("legacy.pipeline.generate_video", return_value="out.mp4")
+    @patch("legacy.pipeline.combine_videos", return_value="/tmp/combined.mp4")
+    @patch("legacy.pipeline.generate_subtitles", return_value="/tmp/subs.srt")
+    @patch("legacy.pipeline.concatenate_audioclips")
+    @patch("legacy.pipeline.AudioFileClip")
+    @patch("legacy.pipeline.tts_generate")
+    @patch("legacy.pipeline.save_video", return_value="/tmp/stock.mp4")
+    @patch("legacy.pipeline.search_for_stock_videos", return_value=["url1"])
+    @patch("legacy.pipeline.get_search_terms", return_value=["term"])
+    @patch("legacy.pipeline.generate_script", return_value="Script text. Second sentence.")
     def test_with_background_music(
         self,
         mock_script,
@@ -165,7 +165,7 @@ class TestStockVideoPipelineE2E:
         mock_cleanup,
         work_dirs,
     ):
-        import pipeline
+        import legacy.pipeline as pipeline
 
         clip = MagicMock()
         clip.duration = 3.0
@@ -191,8 +191,8 @@ class TestStockVideoPipelineE2E:
         with (
             patch.object(pipeline, "TEMP_DIR", work_dirs["temp"]),
             patch.object(pipeline, "PROJECT_ROOT", work_dirs["root"]),
-            patch("pipeline.os.path.exists", return_value=True),
-            patch("pipeline.os.remove"),
+            patch("legacy.pipeline.os.path.exists", return_value=True),
+            patch("legacy.pipeline.os.remove"),
         ):
             (work_dirs["temp"] / "out.mp4").write_bytes(b"video")
 
@@ -209,12 +209,12 @@ class TestStockVideoPipelineE2E:
 class TestCancellationE2E:
     """Test cancellation at different pipeline stages."""
 
-    @patch("pipeline.generate_script", return_value="Script content.")
-    @patch("pipeline.get_search_terms", return_value=["cats"])
-    @patch("pipeline.search_for_stock_videos", return_value=["url1"])
-    @patch("pipeline.save_video")
+    @patch("legacy.pipeline.generate_script", return_value="Script content.")
+    @patch("legacy.pipeline.get_search_terms", return_value=["cats"])
+    @patch("legacy.pipeline.search_for_stock_videos", return_value=["url1"])
+    @patch("legacy.pipeline.save_video")
     def test_cancel_during_download(self, mock_save, mock_search, mock_terms, mock_script):
-        from pipeline import PipelineCancelled, run_generation_pipeline
+        from legacy.pipeline import PipelineCancelled, run_generation_pipeline
 
         call_count = 0
 

@@ -1,4 +1,4 @@
-from repository import (
+from legacy.repository import (
     claim_next_queued_job,
     create_job,
     list_job_events,

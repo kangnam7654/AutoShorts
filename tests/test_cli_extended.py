@@ -41,7 +41,7 @@ class TestLogHandler:
 
 
 class TestDoAuth:
-    @patch("codex_auth.login")
+    @patch("legacy.codex_auth.login")
     def test_successful_auth(self, mock_login, capsys):
         from cli import do_auth
 
@@ -50,7 +50,7 @@ class TestDoAuth:
         output = capsys.readouterr().out
         assert "Done" in output
 
-    @patch("codex_auth.login", side_effect=Exception("auth failed"))
+    @patch("legacy.codex_auth.login", side_effect=Exception("auth failed"))
     def test_failed_auth(self, mock_login):
         from cli import do_auth
 
@@ -93,7 +93,7 @@ class TestMainDispatch:
         from cli import main
 
         with patch("sys.argv", ["cli", "auth"]):
-            with patch("codex_auth.login"):
+            with patch("legacy.codex_auth.login"):
                 main()
 
     def test_models_command(self):
@@ -130,7 +130,7 @@ class TestMainDispatch:
         from cli import main
 
         with patch("sys.argv", ["cli", "generate", "cats"]):
-            with patch("pipeline.run_generation_pipeline", return_value="out.mp4"):
+            with patch("legacy.pipeline.run_generation_pipeline", return_value="out.mp4"):
                 main()
 
     def test_compose_dispatches(self, tmp_path):

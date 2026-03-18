@@ -13,7 +13,7 @@ if str(BACKEND) not in sys.path:
 
 class TestGenerationJob:
     def test_create_job(self, session):
-        from models import GenerationJob
+        from legacy.models import GenerationJob
 
         job_id = str(uuid4())
         job = GenerationJob(
@@ -33,7 +33,7 @@ class TestGenerationJob:
         assert fetched.max_attempts == 1
 
     def test_default_values(self, session):
-        from models import GenerationJob
+        from legacy.models import GenerationJob
 
         job_id = str(uuid4())
         job = GenerationJob(
@@ -53,7 +53,7 @@ class TestGenerationJob:
 
 class TestGenerationEvent:
     def test_create_event_linked_to_job(self, session):
-        from models import GenerationEvent, GenerationJob
+        from legacy.models import GenerationEvent, GenerationJob
 
         job_id = str(uuid4())
         job = GenerationJob(id=job_id, status="running", payload={})
@@ -74,7 +74,7 @@ class TestGenerationEvent:
         assert fetched.job_id == job_id
 
     def test_job_events_relationship(self, session):
-        from models import GenerationEvent, GenerationJob
+        from legacy.models import GenerationEvent, GenerationJob
 
         job_id = str(uuid4())
         job = GenerationJob(id=job_id, status="running", payload={})
@@ -94,7 +94,7 @@ class TestGenerationEvent:
         assert len(job.events) == 3
 
     def test_cascade_delete(self, session):
-        from models import GenerationEvent, GenerationJob
+        from legacy.models import GenerationEvent, GenerationJob
 
         job_id = str(uuid4())
         job = GenerationJob(id=job_id, status="running", payload={})
@@ -115,7 +115,7 @@ class TestGenerationEvent:
 
 class TestScript:
     def test_create_script(self, session):
-        from models import GenerationJob, Script
+        from legacy.models import GenerationJob, Script
 
         job_id = str(uuid4())
         job = GenerationJob(id=job_id, status="completed", payload={})
@@ -137,7 +137,7 @@ class TestScript:
 
 class TestArtifact:
     def test_create_artifact(self, session):
-        from models import Artifact, GenerationJob
+        from legacy.models import Artifact, GenerationJob
 
         job_id = str(uuid4())
         job = GenerationJob(id=job_id, status="completed", payload={})
@@ -161,7 +161,7 @@ class TestArtifact:
 
 class TestProject:
     def test_create_project(self, session):
-        from models import Project
+        from legacy.models import Project
 
         project = Project(name="test-project")
         session.add(project)
@@ -172,7 +172,7 @@ class TestProject:
         assert fetched.name == "test-project"
 
     def test_unique_name(self, session):
-        from models import Project
+        from legacy.models import Project
         from sqlalchemy.exc import IntegrityError
 
         session.add(Project(name="unique"))

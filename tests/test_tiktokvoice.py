@@ -11,7 +11,7 @@ if str(BACKEND) not in sys.path:
 
 class TestSplitString:
     def test_preserves_word_boundaries(self):
-        from tiktokvoice import split_string
+        from legacy.tiktokvoice import split_string
 
         chunks = split_string("alpha beta gamma delta", 10)
 
@@ -19,16 +19,16 @@ class TestSplitString:
 
 
 class TestTts:
-    @patch("tiktokvoice.save_audio_file")
-    @patch("tiktokvoice._generate_single_audio", return_value="ZmFrZQ==")
-    @patch("tiktokvoice.requests.get")
+    @patch("legacy.tiktokvoice.save_audio_file")
+    @patch("legacy.tiktokvoice._generate_single_audio", return_value="ZmFrZQ==")
+    @patch("legacy.tiktokvoice.requests.get")
     def test_falls_back_to_second_endpoint_when_first_is_down(
         self,
         mock_get,
         mock_generate_single,
         mock_save_audio,
     ):
-        import tiktokvoice
+        import legacy.tiktokvoice as tiktokvoice
 
         mock_get.side_effect = [
             MagicMock(status_code=500),
@@ -42,10 +42,10 @@ class TestTts:
         assert mock_generate_single.called
         assert mock_save_audio.called
 
-    @patch("tiktokvoice.save_audio_file")
-    @patch("tiktokvoice.requests.get", return_value=MagicMock(status_code=200))
+    @patch("legacy.tiktokvoice.save_audio_file")
+    @patch("legacy.tiktokvoice.requests.get", return_value=MagicMock(status_code=200))
     def test_rejects_unknown_voice(self, mock_get, mock_save_audio):
-        import tiktokvoice
+        import legacy.tiktokvoice as tiktokvoice
 
         tiktokvoice.tts("hello", voice="not_a_voice", filename="/tmp/test.mp3")
 

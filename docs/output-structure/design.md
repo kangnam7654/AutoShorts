@@ -1,5 +1,7 @@
 # Output 디렉토리 구조 정리
 
+> **Status: COMPLETED** — `raw/`, `final/`, `prompts/` 디렉토리 분리 완료. 실제 운영에서는 `output/YYYY-MM-DD/` 날짜별 하위 구조로 사용 중.
+
 ## 목적
 
 Veo 워크플로우의 산출물(생성 영상, 완성 영상, 프롬프트)을 용도별 폴더로 명확히 분리한다.
@@ -9,11 +11,11 @@ Veo 워크플로우의 산출물(생성 영상, 완성 영상, 프롬프트)을 
 ```
 output/
 ├── archive.json
-├── jeongbin_15s_final.mp4          ← 완성본이 루트에 섞임
+├── my_video_final.mp4          ← 완성본이 루트에 섞임
 ├── raw/
-│   ├── jeongbin_15s_v3.mp4         ← Veo 원본
-│   ├── jeongbin_15s_prompts.json   ← 프롬프트가 raw에 섞임
-│   └── jeongbin_15s_v3_subtitled_v7.mp4  ← 완성본이 raw에도 섞임
+│   ├── my_video_v3.mp4         ← Veo 원본
+│   ├── my_video_prompts.json   ← 프롬프트가 raw에 섞임
+│   └── my_video_v3_subtitled_v7.mp4  ← 완성본이 raw에도 섞임
 └── narrated/
     └── ...
 ```
@@ -28,13 +30,13 @@ output/
 output/
 ├── archive.json                    # 생성 이력 메타데이터
 ├── raw/                            # Veo 생성 원본 영상만
-│   ├── jeongbin_15s.mp4
-│   ├── jeongbin_15s_part1.mp4
-│   └── jeongbin_15s_part2.mp4
+│   ├── my_video.mp4
+│   ├── my_video_part1.mp4
+│   └── my_video_part2.mp4
 ├── final/                          # 자막 씌운 완성 영상
-│   └── jeongbin_15s.mp4
+│   └── my_video.mp4
 └── prompts/                        # 프롬프트 JSON
-    └── jeongbin_15s.json
+    └── my_video.json
 ```
 
 ## 변경 대상
@@ -76,6 +78,6 @@ PROMPTS_DIR = OUTPUT_DIR / "prompts"
 기존 파일은 수동 이동 (스크립트 불필요, 파일 3개뿐):
 ```bash
 mkdir -p output/final output/prompts
-mv output/raw/jeongbin_15s_prompts.json output/prompts/jeongbin_15s.json
-mv output/raw/jeongbin_15s_v3_subtitled_v7.mp4 output/final/jeongbin_15s_v7.mp4
+mv output/raw/my_video_prompts.json output/prompts/my_video.json
+mv output/raw/my_video_v3_subtitled_v7.mp4 output/final/my_video_v7.mp4
 ```
