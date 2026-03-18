@@ -2,6 +2,8 @@
 
 Automate YouTube Shorts creation with AI-generated video. Write a prompt, generate a video with Google Veo 3.1, add subtitles, and upload to YouTube — all from one CLI command.
 
+> [Korean README (한국어)](docs/README.ko.md)
+
 ## What it does
 
 ```
@@ -9,9 +11,24 @@ Prompt JSON → Veo 3.1 API → 15s AI video → Whisper subtitles → YouTube u
 ```
 
 1. You write a prompt describing your character, scene, and dialogue
-2. Veo 3.1 generates a 15-second video (8s create + 7s extend) with lip-synced speech
+2. Veo 3.1 generates a 15-second vertical video (8s create + 7s extend) with lip-synced speech
 3. Whisper transcribes the audio and corrects subtitles to match your script
 4. The final video is uploaded to YouTube as a Short
+
+**Supports any language** — dialogue and subtitles work in Korean, English, Japanese, Chinese, and more.
+
+## Cost
+
+Veo 3.1 is a paid API. Estimated cost per 15-second video:
+
+| Model | Cost/sec | Per video (15s) | Notes |
+|-------|----------|-----------------|-------|
+| Standard (`veo-3.1-generate-preview`) | ~$0.40 | ~$6.00 | Recommended for production |
+| Fast (`veo-3.1-fast-generate-preview`) | ~$0.15 | ~$2.25 | Lower quality, character inconsistency |
+
+The Standard model is recommended. The Fast model often fails to maintain character consistency between parts.
+
+See [Veo pricing](https://cloud.google.com/vertex-ai/generative-ai/pricing#video-models) for current rates.
 
 ## Quick Start
 
@@ -19,46 +36,57 @@ Prompt JSON → Veo 3.1 API → 15s AI video → Whisper subtitles → YouTube u
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- FFmpeg
+- FFmpeg (`brew install ffmpeg` / `apt install ffmpeg`)
 - Google Cloud project with [Veo API](https://cloud.google.com/vertex-ai/generative-ai/docs/video/overview) enabled
 
-### Setup
+### 1. Install
 
 ```bash
-git clone https://github.com/your-username/MoneyPrinter.git
+git clone https://github.com/kangnam/MoneyPrinter.git
 cd MoneyPrinter
 uv sync
 cp .env.example .env
-# Edit .env — set GOOGLE_API_KEY (and optionally VEO_USE_VERTEX + GOOGLE_CLOUD_PROJECT)
 ```
 
-### Create a prompt
+### 2. Configure
 
-Create a JSON file (e.g. `my_prompt.json`):
+Edit `.env`:
+```env
+GOOGLE_API_KEY="your-google-api-key"
+
+# For Vertex AI (recommended for production):
+VEO_USE_VERTEX="true"
+GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
+```
+
+### 3. Create a prompt
+
+Create `my_prompt.json`:
 
 ```json
 [
   {
-    "prompt": "A cinematic vertical short-form video, 9:16. 3D animated character style matching the reference image. She stands in a dark mystical space with golden particles floating around her. Close-up on her face. Camera slowly pulls back.\n\nExact spoken Korean dialogue:\n\"Your dialogue here.\"\n\nShe must speak naturally in Korean. ABSOLUTELY NO MUSIC. No subtitles. No on-screen text.",
-    "dialogue": "Your subtitle text here."
+    "prompt": "A cinematic vertical short-form video, 9:16. 3D animated character style matching the reference image — NOT live action. She stands in a dark mystical space with golden particles floating around her. Close-up on her face. Camera slowly pulls back.\n\nExact spoken dialogue:\n\"Hello, I have something important to tell you.\"\n\"This might change everything.\"\n\nABSOLUTELY NO MUSIC. No subtitles. No on-screen text.",
+    "dialogue": "Hello, I have something important to tell you.\nThis might change everything."
   },
   {
-    "prompt": "Continue the same scene in the SAME style. She remains standing, wearing the EXACT same outfit. The particles glow warmer.\n\nExact spoken Korean dialogue:\n\"Second part dialogue.\"\n\nABSOLUTELY NO MUSIC. No subtitles.",
-    "dialogue": "Second part subtitle."
+    "prompt": "Continue the same scene in the SAME style. She remains standing, wearing the EXACT same outfit and colors. The golden particles glow warmer. She looks directly at the camera.\n\nExact spoken dialogue:\n\"Remember this moment.\"\n\nABSOLUTELY NO MUSIC. No subtitles.",
+    "dialogue": "Remember this moment."
   }
 ]
 ```
 
-### Generate and upload
+### 4. Generate
 
 ```bash
 uv run python Backend/cli.py veo \
   --prompt-file my_prompt.json \
   --image path/to/your/character.png \
-  --language ko --font-size 55 \
-  --upload \
+  --language en --font-size 55 \
   -o output/my_video.mp4
 ```
+
+Add `--upload` to upload directly to YouTube (requires [YouTube OAuth setup](docs/youtube-setup.md)).
 
 ### What happens
 
@@ -73,33 +101,42 @@ uv run python Backend/cli.py veo \
 [4/6] Correcting subtitles...
 [5/6] Burning subtitles...
 [6/6] Restoring original audio...
-[+] Uploaded! Video ID: abc123xyz
 Done! Output: output/my_video.mp4
 ```
 
 ## CLI Commands
 
-### `veo` — Generate video from prompt
+### `veo` — Full pipeline
 
 ```bash
 uv run python Backend/cli.py veo \
-  --prompt-file prompts.json \    # Prompt JSON file
-  --image character.png \          # Reference image for Veo
-  --language ko \                  # Subtitle language
-  --font-size 55 \                 # Subtitle font size
-  --veo-model veo-3.1-generate-preview \  # Model (default)
-  --upload \                       # Upload to YouTube
-  --upload-title "My Video" \      # YouTube title
-  -o output/final/video.mp4       # Output path
+  --prompt-file prompts.json \
+  --image character.png \
+  --language ko \
+  --font-size 55 \
+  --upload \
+  --upload-title "My Video Title" \
+  -o output/final/video.mp4
 ```
 
-### `finalize` — Add subtitles to existing video
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--prompt-file` | (required) | JSON file with prompts and dialogue |
+| `--image` | none | Reference image for character consistency |
+| `--language` | `ko` | Subtitle language code |
+| `--font-size` | `55` | Subtitle font size |
+| `--veo-model` | env `VEO_MODEL` | Veo model ID |
+| `--upload` | false | Upload to YouTube after generation |
+| `--upload-title` | auto | YouTube video title |
+| `--no-finalize` | false | Skip subtitle/BGM post-processing |
+| `-o` | auto | Output file path |
+
+### `finalize` — Post-process existing video
 
 ```bash
 uv run python Backend/cli.py finalize \
   --video raw_video.mp4 \
-  --music bgm.mp3 \
-  --music-volume 0.10 \
+  --music bgm.mp3 --music-volume 0.10 \
   --script "Line 1\nLine 2" \
   --upload \
   -o output/final/video.mp4
@@ -110,6 +147,8 @@ uv run python Backend/cli.py finalize \
 ```bash
 uv run python Backend/cli.py auth
 ```
+
+See [YouTube Setup Guide](docs/youtube-setup.md) for full OAuth configuration.
 
 ## Architecture
 
@@ -125,7 +164,7 @@ Finalize (finalize.py)
   |-- [1] Crop to 9:16 (if needed)
   |-- [2] Extract audio (ffmpeg)
   |-- [3] Generate subtitles (Whisper MLX)
-  |-- [4] Correct subtitle text (match script)
+  |-- [4] Correct subtitle text (match script to timing)
   |-- [5] Burn subtitles (ffmpeg drawtext)
   |-- [6] Mix BGM (optional, moviepy)
   v
@@ -134,7 +173,7 @@ YouTube Upload (youtube.py, OAuth2)
 
 ## Prompt Writing Tips
 
-These rules are based on production experience with Veo 3.1:
+Rules based on production experience with Veo 3.1:
 
 | Rule | Why |
 |------|-----|
@@ -147,6 +186,9 @@ These rules are based on production experience with Veo 3.1:
 | Part 2: "wearing the EXACT same outfit" | Prevents costume color changes between parts |
 | "ABSOLUTELY NO MUSIC" | Veo adds unwanted BGM otherwise |
 | "No text, no subtitles, no captions" | Veo generates broken text overlays |
+| Use Standard model, not Fast | Fast model breaks character consistency between parts |
+
+See [Character Guide](docs/character-guide.md) for setting up your own character.
 
 ## Project Structure
 
@@ -154,45 +196,44 @@ These rules are based on production experience with Veo 3.1:
 Backend/
   cli.py              # CLI entry point
   veo.py              # Veo 3.1 API client
-  finalize.py          # Post-processing pipeline
-  workflow.py          # Prompt normalization
-  youtube.py           # YouTube OAuth2 upload
-  ffmpeg_utils.py      # FFmpeg wrappers
-  video.py             # Video processing, Whisper SRT
-  gpt.py               # LLM client (Ollama/OpenAI)
-  logstream.py         # Logging
-  utils.py             # Path constants, env validation
-  legacy/              # Stock footage pipeline (not actively used)
+  finalize.py         # Post-processing pipeline
+  workflow.py         # Prompt normalization
+  youtube.py          # YouTube OAuth2 upload
+  ffmpeg_utils.py     # FFmpeg wrappers
+  video.py            # Video processing, Whisper SRT
+  gpt.py              # LLM client (Ollama/OpenAI)
+  logstream.py        # Logging
+  utils.py            # Path constants, env validation
+  legacy/             # Stock footage pipeline (not actively used)
 
 output/
   YYYY-MM-DD/
-    raw/               # Veo original videos
-    final/             # Subtitled final videos
-    prompts/           # Prompt JSON backups
+    raw/              # Veo original videos
+    final/            # Subtitled final videos
+    prompts/          # Prompt JSON backups
 ```
 
 ## Configuration
 
 Copy `.env.example` to `.env` and set your keys. See [docs/configuration.md](docs/configuration.md) for all variables.
 
-### Required for Veo pipeline
+### Required
 
 | Variable | Description |
 |----------|-------------|
-| `GOOGLE_API_KEY` | Google AI API key |
-| `VEO_USE_VERTEX` | `true` for Vertex AI mode |
-| `GOOGLE_CLOUD_PROJECT` | GCP project ID (if Vertex) |
+| `GOOGLE_API_KEY` | Google AI API key for Veo |
+| `VEO_USE_VERTEX` | `true` for Vertex AI mode (recommended) |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID (required if Vertex) |
 
 ### Optional
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `VEO_MODEL` | Veo model ID | `veo-3.1-generate-preview` |
-| `VEO_MAX_WAIT_SECONDS` | API timeout | `600` |
-| `AI_PROVIDER` | LLM provider | `ollama` |
-| `TTS_PROVIDER` | TTS engine | `tiktok` |
+| `VEO_MAX_WAIT_SECONDS` | API polling timeout | `600` |
+| `AI_PROVIDER` | LLM provider (`ollama`/`openai`) | `ollama` |
 
-## Docker (Stock Footage Pipeline)
+## Docker (Legacy Stock Pipeline)
 
 The Docker setup runs the legacy stock footage pipeline with a web UI:
 
@@ -210,16 +251,23 @@ uv run python -m pytest tests/ -q                    # 398 tests
 uv run python -m pytest --cov --cov-fail-under=90    # 91% coverage
 ```
 
-## Docs
+## Documentation
 
 - [Quickstart](docs/quickstart.md)
 - [Configuration](docs/configuration.md)
+- [YouTube Setup](docs/youtube-setup.md)
+- [Character Guide](docs/character-guide.md)
+- [Veo Cost Estimation](docs/veo-cost.md)
 - [Architecture](docs/architecture.md)
 - [Docker](docs/docker.md)
 - [Testing](docs/testing.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Veo Workflow](docs/veo-workflow/design.md)
 - [Production Pipeline](docs/veo-workflow/production-pipeline.md)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

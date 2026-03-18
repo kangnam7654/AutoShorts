@@ -1,17 +1,23 @@
 # MoneyPrinter Docs
 
-This folder is the single source of truth for setup, configuration, and troubleshooting.
+> [한국어 README](README.ko.md)
 
-## Start Here
+## Guides
 
-- [Quickstart](quickstart.md)
-- [Configuration](configuration.md)
+- [Quickstart](quickstart.md) — Get running in 5 minutes
+- [Configuration](configuration.md) — All environment variables
+- [YouTube Setup](youtube-setup.md) — OAuth2 setup for YouTube uploads
+- [Character Guide](character-guide.md) — Create your own character
+- [Veo Cost Estimation](veo-cost.md) — API pricing and cost optimization
+
+## Reference
+
 - [Architecture](architecture.md)
 - [Docker](docker.md)
 - [Testing](testing.md)
 - [Troubleshooting](troubleshooting.md)
 
-## Feature Design Documents
+## Design Documents
 
 | Document | Status | Description |
 |----------|--------|-------------|
@@ -24,4 +30,3 @@ This folder is the single source of truth for setup, configuration, and troubles
 | [Qwen TTS](qwen-tts/design.md) | Completed | Qwen3-TTS local TTS provider |
 | [Compose Pipeline](compose-pipeline/design.md) | Completed | Narration + subtitles on existing video |
 | [Codex OAuth](codex-oauth/design.md) | Completed | OAuth2 PKCE for Codex/ChatGPT |
-| [macOS App](macos-app/design.md) | WIP | SwiftUI wrapper app |
