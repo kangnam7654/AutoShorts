@@ -224,6 +224,191 @@ class TestMultiPartVideo:
         assert mock_client.models.generate_videos.call_count == 1
 
 
+def _writing_video_file(label: bytes):
+    """Simulated SDK video whose .save() writes fake bytes (no real media)."""
+    video_file = MagicMock()
+    video_file.save.side_effect = lambda path: Path(path).write_bytes(label)
+    return video_file
+
+
+def _failed_operation(*, error=None):
+    """Simulated completed operation with an error or with no generated videos."""
+    op = MagicMock()
+    op.done = True
+    op.error = error
+    op.response.generated_videos = []
+    return op
+
+
+class TestMultiPartFailClosed:
+    """Offline simulations of partial Veo failures (no real API, no real media)."""
+
+    @pytest.mark.parametrize(
+        "failed_op, reason_text",
+        [
+            (_failed_operation(error="quota exceeded"), "quota exceeded"),
+            (_failed_operation(error=None), "no video returned"),
+        ],
+        ids=["extension_error", "extension_empty_response"],
+    )
+    def test_extension_failure_keeps_last_good_part_and_raises(
+        self, tmp_path, failed_op, reason_text
+    ):
+        import veo
+
+        part1_file = _writing_video_file(b"part1")
+        op1 = _make_operation(part1_file)
+
+        mock_client = MagicMock()
+        mock_client.models.generate_videos.side_effect = [op1, failed_op]
+
+        output = tmp_path / "final_out.mp4"
+        prompts = [{"prompt": "Part 1"}, {"prompt": "Part 2"}, {"prompt": "Part 3"}]
+
+        with patch.object(veo, "_client", return_value=mock_client):
+            with patch.object(veo, "OUTPUT_DIR", tmp_path):
+                with pytest.raises(veo.VeoPartialFailureError) as exc_info:
+                    veo.generate_multi_part_video(prompts=prompts, output_path=str(output))
+
+        err = exc_info.value
+        assert not isinstance(err, FileNotFoundError)
+        assert err.failed_part == 2
+        assert err.total_parts == 3
+
+        expected_part1 = tmp_path / "raw" / "final_out_part1.mp4"
+        assert err.last_good_path == str(expected_part1)
+        assert str(expected_part1) in str(err)
+        assert "part 2/3" in str(err)
+        assert reason_text in str(err)
+
+        # Last good part is preserved; no final output and no failed-part file.
+        assert expected_part1.read_bytes() == b"part1"
+        assert not output.exists()
+        assert not (tmp_path / "raw" / "final_out_part2.mp4").exists()
+
+        # No retry and no further extensions after the failure.
+        assert mock_client.models.generate_videos.call_count == 2
+
+    @pytest.mark.parametrize(
+        "bad_part",
+        [
+            {"prompt": "   "},
+            {"prompt": ""},
+            {},
+            {"prompt": None},
+            {"prompt": 123},
+            "not a dict",
+            None,
+        ],
+        ids=["blank", "empty", "missing", "none", "non_string", "string_item", "none_item"],
+    )
+    def test_invalid_later_prompt_makes_no_api_calls(self, tmp_path, bad_part):
+        import veo
+
+        mock_client = MagicMock()
+        client_factory = MagicMock(return_value=mock_client)
+        prompts = [{"prompt": "Valid part 1"}, {"prompt": "Valid part 2"}, bad_part]
+
+        with patch.object(veo, "_client", client_factory):
+            with patch.object(veo, "OUTPUT_DIR", tmp_path):
+                with pytest.raises(ValueError, match="part 3"):
+                    veo.generate_multi_part_video(prompts=prompts)
+
+        client_factory.assert_not_called()
+        mock_client.models.generate_videos.assert_not_called()
+        assert not (tmp_path / "raw").exists()
+
+    @pytest.mark.parametrize("bad_prompts", [[], None, {"prompt": "x"}])
+    def test_invalid_prompt_container_makes_no_api_calls(self, tmp_path, bad_prompts):
+        import veo
+
+        client_factory = MagicMock()
+
+        with patch.object(veo, "_client", client_factory):
+            with patch.object(veo, "OUTPUT_DIR", tmp_path):
+                with pytest.raises(ValueError):
+                    veo.generate_multi_part_video(prompts=bad_prompts)
+
+        client_factory.assert_not_called()
+
+    @pytest.mark.parametrize("part_count", [2, 3])
+    def test_success_saves_all_parts_and_final_copy(self, tmp_path, part_count):
+        import veo
+
+        files = [_writing_video_file(f"part{i}".encode()) for i in range(1, part_count + 1)]
+        ops = [_make_operation(f) for f in files]
+
+        mock_client = MagicMock()
+        mock_client.models.generate_videos.side_effect = ops
+
+        output = tmp_path / "final_out.mp4"
+        prompts = [{"prompt": f"Part {i}"} for i in range(1, part_count + 1)]
+
+        with patch.object(veo, "_client", return_value=mock_client):
+            with patch.object(veo, "OUTPUT_DIR", tmp_path):
+                result = veo.generate_multi_part_video(prompts=prompts, output_path=str(output))
+
+        assert result == str(output)
+        assert output.read_bytes() == f"part{part_count}".encode()
+        # Successful intermediate parts are kept.
+        for i in range(1, part_count + 1):
+            assert (tmp_path / "raw" / f"final_out_part{i}.mp4").read_bytes() == f"part{i}".encode()
+        assert mock_client.models.generate_videos.call_count == part_count
+
+    def test_timeout_during_extension_propagates_without_retry(self, tmp_path):
+        import veo
+
+        part1_file = _writing_video_file(b"part1")
+        op1 = _make_operation(part1_file)
+        pending = MagicMock()
+        pending.done = False
+
+        mock_client = MagicMock()
+        mock_client.models.generate_videos.side_effect = [op1, pending]
+        mock_client.operations.get.return_value = pending
+
+        with patch.object(veo, "_client", return_value=mock_client):
+            with patch.object(veo, "OUTPUT_DIR", tmp_path):
+                with patch.object(veo, "MAX_WAIT_SECONDS", 0):
+                    with pytest.raises(TimeoutError):
+                        veo.generate_multi_part_video(
+                            prompts=[{"prompt": "Part 1"}, {"prompt": "Part 2"}],
+                            output_path=str(tmp_path / "out.mp4"),
+                        )
+
+        assert mock_client.models.generate_videos.call_count == 2
+        assert (tmp_path / "raw" / "out_part1.mp4").read_bytes() == b"part1"
+        assert not (tmp_path / "out.mp4").exists()
+
+    def test_cli_does_not_finalize_or_upload_on_partial_failure(self, tmp_path):
+        import utils
+        import veo
+        from cli import main
+
+        parts = [{"prompt": "Part 1", "dialogue": "a"}, {"prompt": "Part 2", "dialogue": "b"}]
+        op1 = _make_operation(_writing_video_file(b"part1"))
+        mock_client = MagicMock()
+        mock_client.models.generate_videos.side_effect = [
+            op1,
+            _failed_operation(error=None),
+        ]
+
+        with patch("sys.argv", ["cli", "veo", "topic", "--parts", "2", "--upload"]):
+            with patch("gpt.generate_veo_prompts", return_value=parts):
+                with patch("workflow.extract_script", return_value="a\nb"):
+                    with patch.object(veo, "_client", return_value=mock_client):
+                        with patch.object(veo, "OUTPUT_DIR", tmp_path):
+                            with patch("finalize.run_finalize_pipeline") as mock_finalize:
+                                with patch.object(utils, "PROMPTS_DIR", tmp_path / "prompts"):
+                                    with pytest.raises(SystemExit) as exc_info:
+                                        main()
+
+        assert exc_info.value.code == 1
+        mock_finalize.assert_not_called()
+        assert mock_client.models.generate_videos.call_count == 2
+        assert (tmp_path / "raw" / "Part_1_part1.mp4").read_bytes() == b"part1"
+
+
 class TestGenerateVeoPrompts:
     def test_returns_list_of_parts(self, tmp_path):
         import gpt
