@@ -318,6 +318,50 @@ def _extend_part(client, types_module, model_name: str, previous_video, prompt: 
     )
 
 
+class VeoPartialFailureError(RuntimeError):
+    """A multi-part Veo run stopped after at least one part was saved.
+
+    The last successfully saved part is kept in ``output/raw`` and is exposed
+    via ``last_good_path``. No final output is produced, so callers must not
+    finalize or upload anything from an incomplete run.
+    """
+
+    def __init__(self, failed_part: int, total_parts: int, last_good_path: str, reason: str):
+        self.failed_part = failed_part
+        self.total_parts = total_parts
+        self.last_good_path = last_good_path
+        self.reason = reason
+        super().__init__(
+            f"Veo extension failed at part {failed_part}/{total_parts} ({reason}). "
+            f"Incomplete run: no final video was produced. "
+            f"Last good part ({failed_part - 1}/{total_parts}) kept at: {last_good_path}"
+        )
+
+
+def _validate_multi_part_prompts(prompts) -> list[str]:
+    """Validate every prompt up front and return the stripped prompt strings.
+
+    Runs before any client is built or any (paid) Veo request is submitted.
+    """
+    if not isinstance(prompts, list) or not prompts:
+        raise ValueError("At least one Veo prompt is required (a non-empty list of dicts).")
+
+    cleaned: list[str] = []
+    for index, part in enumerate(prompts, start=1):
+        if not isinstance(part, dict):
+            raise ValueError(
+                f"Veo prompt for part {index} must be a dict, got {type(part).__name__}."
+            )
+        value = part.get("prompt")
+        if not isinstance(value, str):
+            raise ValueError(f"Veo prompt for part {index} must be a string.")
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError(f"Veo prompt for part {index} is empty.")
+        cleaned.append(stripped)
+    return cleaned
+
+
 def generate_multi_part_video(
     prompts: list[dict],
     output_path: str = "",
@@ -325,34 +369,33 @@ def generate_multi_part_video(
     image_path: str = "",
     on_log=None,
 ) -> str:
-    """Generate a multi-part video by creating part 1 and then extending it."""
+    """Generate a multi-part video by creating part 1 and then extending it.
+
+    Raises ``VeoPartialFailureError`` if an extension returns an error or no
+    video; the previously saved part is left in ``output/raw``.
+    """
     from google.genai import types
 
-    if not prompts:
-        raise ValueError("At least one Veo prompt is required.")
+    # Validate all prompts before constructing a client or submitting requests.
+    part_prompts = _validate_multi_part_prompts(prompts)
 
     model_name = model or VEO_MODEL
-    first_prompt = str(prompts[0].get("prompt", "")).strip()
-    if not first_prompt:
-        raise ValueError("The first Veo prompt must not be empty.")
+    first_prompt = part_prompts[0]
+
+    # Load reference image for the first part only (before any API request)
+    ref_image = _load_reference_image(image_path) if image_path else None
 
     resolved_output_path = _resolve_output_path(first_prompt, output_path)
     client = _client()
     current_video = None
-    total_parts = len(prompts)
-
-    # Load reference image for the first part only
-    ref_image = _load_reference_image(image_path) if image_path else None
+    total_parts = len(part_prompts)
+    last_part_path = None
 
     # Build per-part output paths: base_part1.mp4, base_part2.mp4, ...
     base_stem = Path(resolved_output_path).stem
     parts_dir = _raw_output_dir()
 
-    for index, part in enumerate(prompts, start=1):
-        part_prompt = str(part.get("prompt", "")).strip()
-        if not part_prompt:
-            raise ValueError(f"Veo prompt for part {index} is empty.")
-
+    for index, part_prompt in enumerate(part_prompts, start=1):
         _emit(
             f"[Veo] Part {index}/{total_parts}: {part_prompt[:80]}...",
             on_log=on_log,
@@ -371,12 +414,22 @@ def generate_multi_part_video(
             part_label=f"Part {index}",
             allow_partial=index > 1,
         ):
+            # Only reachable for index > 1: part 1 failures raise above.
+            error = _operation_error(operation)
+            reason = f"error: {error}" if error else "no video returned"
             _emit(
-                f"[Veo] Extend failed at Part {index}. Saving {index - 1} part(s).",
-                "warning",
+                f"[Veo] Extend failed at Part {index}/{total_parts} ({reason}). "
+                f"Last good part kept at: {last_part_path}. "
+                "Not producing a final video.",
+                "error",
                 on_log=on_log,
             )
-            break
+            raise VeoPartialFailureError(
+                failed_part=index,
+                total_parts=total_parts,
+                last_good_path=last_part_path,
+                reason=reason,
+            )
 
         current_video = _generated_videos(operation)[0]
         expected_duration = 8 + (index - 1) * 7
@@ -384,17 +437,17 @@ def generate_multi_part_video(
         # Save each part separately
         part_path = str(parts_dir / f"{base_stem}_part{index}.mp4")
         _save_video(client, current_video.video, part_path)
+        last_part_path = part_path
         _emit(
             f"[Veo] Part {index} saved: {part_path} (~{expected_duration}s)",
             "success",
             on_log=on_log,
         )
 
-    if current_video is None:
+    if current_video is None or last_part_path is None:
         raise RuntimeError("Veo did not produce a final video.")
 
     # Copy the last saved part as the final output (avoid re-downloading)
-    last_part_path = str(parts_dir / f"{base_stem}_part{min(index, total_parts)}.mp4")
     if last_part_path != resolved_output_path:
         shutil.copy2(last_part_path, resolved_output_path)
     _emit(f"[Veo] Final video saved: {resolved_output_path}", "success", on_log=on_log)

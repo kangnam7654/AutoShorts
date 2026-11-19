@@ -104,6 +104,10 @@ Add `--upload` to upload directly to YouTube (requires [YouTube OAuth setup](doc
 Done! Output: output/my_video.mp4
 ```
 
+### If a part fails
+
+All prompts in the list are validated (each must be an object with a non-blank `"prompt"` string) before any Veo request is sent. A bad later prompt therefore sends no Veo generation request; prompt generation by a separate LLM may still have occurred. If an extension (part 2+) returns an error or no video, the run stops without retrying. The last successfully generated part stays in `output/raw/` (e.g. `output/raw/my_video_part1.mp4`), the error message shows its path and the failed part number, and the CLI exits with status 1. No final output is written, and finalization and `--upload` do not run for the incomplete video. Timeouts and network errors also stop the run without retrying.
+
 ## CLI Commands
 
 ### `veo` — Full pipeline
