@@ -218,13 +218,14 @@ def upload_video(
         privacy_status,
     )
 
+    # Exactly one insert/upload session. Never start a fresh upload after an
+    # error (including 401/403): the first attempt may already have created
+    # the video, so a restart could publish a duplicate.
     try:
         response = _perform_upload(options)
     except HttpError as err:
         log(f"[-] An HTTP error {err.resp.status} occurred:\n{err.content}", "error")
-        if err.resp.status not in [401, 403]:
-            raise
-        response = _perform_upload(options)
+        raise
 
     if response and thumbnail_path:
         video_id = response.get("id", "")

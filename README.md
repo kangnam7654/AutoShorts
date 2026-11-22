@@ -108,6 +108,12 @@ Done! Output: output/my_video.mp4
 
 All prompts in the list are validated (each must be an object with a non-blank `"prompt"` string) before any Veo request is sent. A bad later prompt therefore sends no Veo generation request; prompt generation by a separate LLM may still have occurred. If an extension (part 2+) returns an error or no video, the run stops without retrying. The last successfully generated part stays in `output/raw/` (e.g. `output/raw/my_video_part1.mp4`), the error message shows its path and the failed part number, and the CLI exits with status 1. No final output is written, and finalization and `--upload` do not run for the incomplete video. Timeouts and network errors also stop the run without retrying.
 
+### If the upload fails
+
+`--upload` is opt-in and makes a single upload attempt; it never starts a new upload automatically, including after HTTP 401/403 (transient 5xx errors are still retried within the same upload session). Success is reported only when YouTube returns a video ID. On an error or a response without a video ID, the local final video is kept, its path is shown in the error, and the CLI exits with status 1. If the request may already have been sent, the remote outcome is unknown — a failure does not prove the video was not uploaded. Check YouTube Studio before retrying manually to avoid a duplicate.
+
+`veo --no-finalize --upload` is rejected before any prompt generation or Veo request, because upload runs as part of finalization. `--no-finalize` without `--upload` still works.
+
 ## CLI Commands
 
 ### `veo` — Full pipeline
