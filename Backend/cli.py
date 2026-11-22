@@ -147,6 +147,16 @@ def compose(args: argparse.Namespace) -> None:
 
 def veo(args: argparse.Namespace) -> None:
     """Full Veo pipeline: [LLM prompts →] Veo video → narration → finalize."""
+    # Preflight: upload runs inside finalize, so --no-finalize would silently
+    # drop a requested upload. Reject before any prompt generation or paid call.
+    if getattr(args, "no_finalize", False) and getattr(args, "upload", False):
+        print(color(
+            "Error: --upload requires finalization; remove --no-finalize or --upload. "
+            "Nothing was generated.",
+            "1;31",
+        ))
+        sys.exit(2)
+
     print(color("\n=== AutoShorts Veo ===", "1;36"))
 
     try:

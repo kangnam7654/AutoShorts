@@ -238,3 +238,142 @@ class TestRunFinalizePipeline:
         # Script text should replace the Whisper transcription
         replaced_srt = srt_file.read_text()
         assert "original text" in replaced_srt
+
+
+# --- upload outcome ---
+
+class TestMaybeUpload:
+    def _call(self, path="/out/final.mp4"):
+        from finalize import _maybe_upload
+
+        logs = []
+        result = _maybe_upload(path, "Title", "Desc", lambda m, lvl="info": logs.append((m, lvl)))
+        return result, logs
+
+    @patch("youtube.upload_video", return_value={"id": "abc123"})
+    def test_success_returns_video_id(self, mock_upload):
+        video_id, logs = self._call()
+
+        assert video_id == "abc123"
+        mock_upload.assert_called_once()
+        kwargs = mock_upload.call_args[1]
+        assert kwargs["video_path"] == "/out/final.mp4"
+        assert kwargs["privacy_status"] == "public"
+        assert ("[+] Uploaded! Video ID: abc123", "success") in logs
+
+    @pytest.mark.parametrize(
+        "response",
+        [None, {}, {"id": ""}, {"id": "   "}, {"id": None}, {"id": 123}, "abc123", ["abc123"]],
+    )
+    def test_missing_or_invalid_id_raises_unknown_outcome(self, response):
+        from finalize import UploadError
+
+        with patch("youtube.upload_video", return_value=response) as mock_upload:
+            with pytest.raises(UploadError) as excinfo:
+                self._call()
+
+        mock_upload.assert_called_once()
+        err = excinfo.value
+        assert err.final_output == "/out/final.mp4"
+        assert err.remote_outcome_unknown is True
+        assert "/out/final.mp4" in str(err)
+        assert "unknown" in str(err)
+        assert "Check YouTube" in str(err)
+
+    def test_exception_raises_unknown_outcome_without_retry(self):
+        from finalize import UploadError
+
+        with patch("youtube.upload_video", side_effect=RuntimeError("connection reset")) as mock_upload:
+            with pytest.raises(UploadError) as excinfo:
+                self._call()
+
+        assert mock_upload.call_count == 1
+        err = excinfo.value
+        assert err.remote_outcome_unknown is True
+        assert "connection reset" in str(err)
+        assert "/out/final.mp4" in str(err)
+        assert "no automatic retry" in str(err)
+        assert isinstance(err.__cause__, RuntimeError)
+
+
+class TestRunFinalizePipelineUpload:
+    def _run(self, tmp_path, upload_patch, logs):
+        video = tmp_path / "video.mp4"
+        video.write_bytes(b"fake")
+        out = tmp_path / "final" / "out.mp4"
+        out.parent.mkdir()
+
+        def fake_mux(_video, _audio, output):
+            Path(output).write_bytes(b"final-video")
+
+        with patch("finalize.subprocess.run"), \
+             patch("finalize.generate_subtitles", return_value=str(tmp_path / "subs.srt")), \
+             patch("finalize.render_subtitled_video", return_value=str(tmp_path / "rendered.mp4")), \
+             patch("finalize.mux_video_audio", side_effect=fake_mux), \
+             patch("finalize.TEMP_DIR", tmp_path), \
+             patch("finalize.SUBTITLES_DIR", tmp_path), \
+             patch("finalize.FINAL_DIR", tmp_path / "final"), \
+             upload_patch as mock_upload:
+            result = run_finalize_pipeline(
+                video_path=str(video),
+                crop=False,
+                output_path=str(out),
+                upload=True,
+                upload_title="T",
+                on_log=lambda m, lvl: logs.append((m, lvl)),
+            )
+        return result, out, mock_upload
+
+    def test_failed_upload_raises_and_preserves_local_video(self, tmp_path):
+        from finalize import UploadError
+
+        logs = []
+        with pytest.raises(UploadError) as excinfo:
+            self._run(tmp_path, patch("youtube.upload_video", side_effect=RuntimeError("boom")), logs)
+
+        out = tmp_path / "final" / "out.mp4"
+        assert out.read_bytes() == b"final-video"
+        assert excinfo.value.final_output == str(out.resolve())
+        assert str(out.resolve()) in str(excinfo.value)
+        assert not any(m.startswith("[+] Output:") for m, _ in logs)
+
+    def test_no_id_response_raises_and_preserves_local_video(self, tmp_path):
+        from finalize import UploadError
+
+        logs = []
+        with pytest.raises(UploadError):
+            self._run(tmp_path, patch("youtube.upload_video", return_value={"kind": "youtube#video"}), logs)
+
+        assert (tmp_path / "final" / "out.mp4").read_bytes() == b"final-video"
+        assert not any(m.startswith("[+] Output:") for m, _ in logs)
+
+    def test_successful_upload_returns_output(self, tmp_path):
+        logs = []
+        result, out, mock_upload = self._run(
+            tmp_path, patch("youtube.upload_video", return_value={"id": "vid42"}), logs
+        )
+
+        assert result == str(out.resolve())
+        mock_upload.assert_called_once()
+        assert ("[+] Uploaded! Video ID: vid42", "success") in logs
+        assert (f"[+] Output: {result}", "success") in logs
+
+    def test_upload_not_called_by_default(self, tmp_path):
+        video = tmp_path / "video.mp4"
+        video.write_bytes(b"fake")
+
+        with patch("finalize.subprocess.run"), \
+             patch("finalize.generate_subtitles", return_value=str(tmp_path / "subs.srt")), \
+             patch("finalize.render_subtitled_video", return_value=str(tmp_path / "rendered.mp4")), \
+             patch("finalize.mux_video_audio"), \
+             patch("finalize.TEMP_DIR", tmp_path), \
+             patch("finalize.SUBTITLES_DIR", tmp_path), \
+             patch("finalize.FINAL_DIR", tmp_path), \
+             patch("youtube.upload_video") as mock_upload:
+            run_finalize_pipeline(
+                video_path=str(video),
+                crop=False,
+                output_path=str(tmp_path / "out.mp4"),
+            )
+
+        mock_upload.assert_not_called()

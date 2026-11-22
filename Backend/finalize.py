@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+from collections.abc import Mapping
 from pathlib import Path
 from uuid import uuid4
 
@@ -339,11 +340,53 @@ def _mix_background_music(
     return mixed_path
 
 
-def _maybe_upload(final_output: str, title: str, description: str, emit) -> None:
+class UploadError(RuntimeError):
+    """An explicitly requested upload could not be confirmed.
+
+    The local final video is preserved at ``final_output``. When
+    ``remote_outcome_unknown`` is True the upload request may have reached
+    YouTube, so the operator must check the channel before retrying manually.
+    """
+
+    def __init__(self, message: str, final_output: str, remote_outcome_unknown: bool):
+        super().__init__(message)
+        self.final_output = final_output
+        self.remote_outcome_unknown = remote_outcome_unknown
+
+
+def _upload_failure(final_output: str, reason: str, remote_outcome_unknown: bool) -> UploadError:
+    message = f"YouTube upload not confirmed: {reason}. Local final video preserved: {final_output}."
+    if remote_outcome_unknown:
+        message += (
+            " The upload request may have been sent, so the remote outcome is unknown."
+            " Check YouTube Studio for this video before retrying manually;"
+            " no automatic retry was attempted."
+        )
+    else:
+        message += " The upload was not dispatched; fix the cause and retry manually."
+    return UploadError(message, final_output, remote_outcome_unknown)
+
+
+def _confirmed_video_id(response) -> str:
+    if not isinstance(response, Mapping):
+        return ""
+    video_id = response.get("id")
+    if isinstance(video_id, str) and video_id.strip():
+        return video_id.strip()
+    return ""
+
+
+def _maybe_upload(final_output: str, title: str, description: str, emit) -> str:
+    """Upload once and return the confirmed video ID, or raise UploadError."""
     emit("[+] Uploading to YouTube...", "info")
     try:
         from youtube import upload_video
+    except Exception as err:
+        failure = _upload_failure(final_output, f"uploader unavailable ({err})", False)
+        emit(f"[!] {failure}", "error")
+        raise failure from err
 
+    try:
         response = upload_video(
             video_path=final_output,
             title=title or Path(final_output).stem,
@@ -352,10 +395,19 @@ def _maybe_upload(final_output: str, title: str, description: str, emit) -> None
             keywords="",
             privacy_status="public",
         )
-        video_id = response.get("id", "unknown") if response else "unknown"
-        emit(f"[+] Uploaded! Video ID: {video_id}", "success")
     except Exception as err:
-        emit(f"[!] Upload failed: {err}", "error")
+        failure = _upload_failure(final_output, f"upload raised {type(err).__name__}: {err}", True)
+        emit(f"[!] {failure}", "error")
+        raise failure from err
+
+    video_id = _confirmed_video_id(response)
+    if not video_id:
+        failure = _upload_failure(final_output, "response did not contain a video ID", True)
+        emit(f"[!] {failure}", "error")
+        raise failure
+
+    emit(f"[+] Uploaded! Video ID: {video_id}", "success")
+    return video_id
 
 
 def run_finalize_pipeline(
@@ -374,7 +426,11 @@ def run_finalize_pipeline(
     upload_description: str = "",
     on_log=None,
 ) -> str:
-    """Finalize a Veo video with subtitles, optional music, and optional upload."""
+    """Finalize a Veo video with subtitles, optional music, and optional upload.
+
+    With ``upload=True`` this raises UploadError (carrying the preserved local
+    output path) unless YouTube returns a response with a nonempty video ID.
+    """
 
     def emit(message: str, level: str = "info") -> None:
         log(message, level)

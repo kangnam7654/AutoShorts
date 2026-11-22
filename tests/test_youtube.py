@@ -182,30 +182,83 @@ class TestUploadVideo:
 
         mock_thumb.assert_called_once_with("video123", "/thumb.png")
 
+    @pytest.mark.parametrize("status", [401, 403])
     @patch("youtube._perform_upload")
-    def test_retries_on_401(self, mock_upload):
+    def test_does_not_restart_upload_on_auth_error(self, mock_upload, status):
         from apiclient.errors import HttpError
         from youtube import upload_video
 
         resp = MagicMock()
-        resp.status = 401
-        # First call: 401 error, second: success
+        resp.status = status
+        # A second value is available, but must never be consumed.
         mock_upload.side_effect = [
-            HttpError(resp, b"Unauthorized"),
-            {"id": "retry_ok"},
+            HttpError(resp, b"Auth error"),
+            {"id": "duplicate"},
         ]
 
-        result = upload_video(
-            video_path="/test.mp4",
-            title="Title",
-            description="Desc",
-            category="22",
-            keywords="",
-            privacy_status="public",
-        )
+        with pytest.raises(HttpError):
+            upload_video(
+                video_path="/test.mp4",
+                title="Title",
+                description="Desc",
+                category="22",
+                keywords="",
+                privacy_status="public",
+            )
 
-        assert result == {"id": "retry_ok"}
-        assert mock_upload.call_count == 2
+        assert mock_upload.call_count == 1
+
+    @pytest.mark.parametrize("status", [401, 403])
+    @patch("youtube.MediaFileUpload")
+    @patch("youtube._log_channel_ids")
+    @patch("youtube.get_authenticated_service")
+    def test_single_insert_request_on_auth_error(
+        self, mock_auth, mock_channels, mock_media, status
+    ):
+        from apiclient.errors import HttpError
+        from youtube import upload_video
+
+        resp = MagicMock()
+        resp.status = status
+        youtube_client = MagicMock()
+        mock_auth.return_value = youtube_client
+        insert = youtube_client.videos.return_value.insert
+        insert.return_value.next_chunk.side_effect = HttpError(resp, b"Auth error")
+
+        with pytest.raises(HttpError):
+            upload_video(
+                video_path="/test.mp4",
+                title="Title",
+                description="Desc",
+                category="22",
+                keywords="",
+                privacy_status="public",
+            )
+
+        assert insert.call_count == 1
+        assert insert.return_value.next_chunk.call_count == 1
+        assert mock_auth.call_count == 1
+
+    @patch("youtube._perform_upload")
+    def test_propagates_other_http_errors(self, mock_upload):
+        from apiclient.errors import HttpError
+        from youtube import upload_video
+
+        resp = MagicMock()
+        resp.status = 400
+        mock_upload.side_effect = HttpError(resp, b"Bad Request")
+
+        with pytest.raises(HttpError):
+            upload_video(
+                video_path="/test.mp4",
+                title="Title",
+                description="Desc",
+                category="22",
+                keywords="",
+                privacy_status="public",
+            )
+
+        assert mock_upload.call_count == 1
 
 
 class TestSetThumbnail:
